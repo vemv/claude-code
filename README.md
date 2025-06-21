@@ -199,14 +199,58 @@ You can control how the Claude Code window appears using Emacs' `display-buffer-
 
 This layout works best on wide screens.
 
-### Font Configuration for Better Rendering
+### Font Setup
 
-Using a font with good Unicode support helps avoid flickering while Claude Code is rendering its thinking icons. [JuliaMono](https://juliamono.netlify.app/) has excellent Unicode symbols support. To let the Claude Code buffer use Julia Mono for rendering Unicode characters while still using your default font for ASCII characters add this elisp code:
+Claude Code uses a lot of special unicode characters, and most common programming fonts don't include them all. To ensure that Claude renders special characters correctly in Emacs, you need to either use a font with really good unicode support, or set up fallback fonts for Emacs to use when your preferred font does not have a character. 
+
+### Using System Fonts as Fallbacks
+
+If you don't want to install any new fonts, you can use fonts already on your system as fallbacks. Here's a good setup for macOS, assuming your default, preferred font is "Maple Mono".  Substitute "Maple Mono" with whatever your default font is, and add this to your `init.el` file:
+
+```elisp
+;; important - tell emacs to use our fontset settings
+(setq use-default-font-for-symbols nil)
+
+;; add least preferred fonts first, most preferred last
+(set-fontset-font t 'symbol "STIX Two Math" nil 'prepend)
+(set-fontset-font t 'symbol "Zapf Dingbats" nil 'prepend)
+(set-fontset-font t 'symbol "Menlo" nil 'prepend)
+
+;; add your default, preferred font last
+(set-fontset-font t 'symbol "Maple Mono" nil 'prepend)
+```
+
+The configuration on Linux or Windows will depend on the fonts available on your system. To test if
+your system has a certain font, evaluate this expression:
+
+```elisp
+(find-font (font-spec :family "DejaVu Sans Mono"))
+```
+
+On Linux it might look like this:
+
+```elisp
+(setq use-default-font-for-symbols nil)
+(set-fontset-font t 'symbol "DejaVu Sans Mono" nil 'prepend)
+
+;; your preferred, default font:
+(set-fontset-font t 'symbol "Maple Mono" nil 'prepend)
+```
+
+### Using JuliaMono as Fallback
+
+A cross-platform approach is to install a fixed-width font with really good unicode symbols support. 
+[JuliaMono](https://juliamono.netlify.app/) has excellent Unicode symbols support. To let the Claude Code buffer use Julia Mono for rendering Unicode characters while still using your default font for ASCII characters add this elisp code:
 
 ```elisp
 (setq use-default-font-for-symbols nil)
 (set-fontset-font t 'unicode (font-spec :family "JuliaMono"))
+
+;; your preferred, default font:
+(set-fontset-font t 'symbol "Maple Mono" nil 'prepend)
 ```
+
+### Using a Custom Claude Code Font
 
 If instead you want to use a particular font just for the Claude Code REPL but use a different font
 everywhere else you can customize the `claude-code-repl-face`:
@@ -216,7 +260,7 @@ everywhere else you can customize the `claude-code-repl-face`:
    '(claude-code-repl-face ((t (:family "JuliaMono")))))
 ```
 
-#### Using Your 
+(If you set the Claude Code font to "JuliaMono", you can skip all the fontset fallback configurations above.)
 
 ### Reducing Flickering on Window Configuration Changes
 
