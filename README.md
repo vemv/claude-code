@@ -190,7 +190,7 @@ You can control how the Claude Code window appears using Emacs' `display-buffer-
 
 ```elisp
 (add-to-list 'display-buffer-alist
-                 `("^\\*claude"
+                 '("^\\*claude"
                    (display-buffer-in-side-window)
                    (side . right)
                    (window-width . ,width)
