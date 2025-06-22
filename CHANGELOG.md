@@ -2,6 +2,22 @@
 
 All notable changes to claude-code.el will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- New `claude-code-newline-keybinding-style` customization variable to configure how return and modifier keys behave in Claude buffers
+  - `'default` (default): M-return inserts newline, RET sends message
+  - `'newline-on-return`: RET inserts newline, M-return sends message
+  - `'newline-on-shift-return`: RET sends message, S-return inserts newline
+  - `'super-return-to-send`: RET inserts newline, s-return sends message
+- Single ESC key now works as expected in Claude buffers for canceling operations
+- C-g can be used as an alternative to ESC for canceling in Claude buffers
+
+### Changed
+
+- Renamed internal variable from `claude-code-key-binding-style` to `claude-code-newline-keybinding-style` for clarity
+
 ## [0.3.8]
 
 ### Added

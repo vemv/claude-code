@@ -67,7 +67,11 @@ With a single prefix arg, `claude-code`, `claude-code-send-command` and
 `claude-code-send-command-with-context` will switch to the Claude terminal buffer after sending the
 command.
 
+### Keybindings in Claude Buffers
 
+In Claude buffers, the ESC key now works as expected - a single press sends an escape character to Claude. This is useful for canceling operations or saying "No" to Claude prompts. You can also use `C-g` as an alternative way to send escape/cancel.
+
+The behavior of the return key and its modifiers can be customized using the `claude-code-newline-keybinding-style` variable. By default, pressing RET sends your message to Claude while M-return (Meta/Alt + Return) inserts a newline. This can be changed to match your preferences - for example, you can configure it so that RET inserts newlines and M-return sends the message, or use Shift-return or Super-return for newlines. See the Customization section for available options.
 
 ### Read-Only Mode Toggle
 
@@ -182,6 +186,14 @@ This allows you to have separate Claude conversations for different aspects of y
 ;; When set to t, claude-code.el can output display content without truncation
 ;; This is useful when working with large Claude buffers
 (setq claude-code-never-truncate-claude-buffer t)
+
+;; Configure key binding style for entering newlines and sending messages in Claude buffers
+;; Available styles:
+;;   'default              - M-return inserts newline, RET sends message (default)
+;;   'newline-on-return    - RET inserts newline, M-return sends message
+;;   'newline-on-shift-return - RET sends message, S-return inserts newline
+;;   'super-return-to-send - RET inserts newline, s-return sends message
+(setq claude-code-newline-keybinding-style 'default)
 ```
 
 ### Customizing Window Position

@@ -142,6 +142,20 @@ outputs."
   :type 'boolean
   :group 'claude-code)
 
+(defcustom claude-code-newline-keybinding-style 'default
+  "Key binding style for entering newlines and sending messages.
+
+This controls how the return key and its modifiers behave in Claude buffers:
+- \\='default: M-return inserts newline, RET sends message
+- \\='newline-on-return: RET inserts newline, M-return sends message
+- \\='newline-on-shift-return: RET sends message, S-return inserts newline
+- \\='super-return-to-send: RET inserts newline, s-return sends message"
+  :type '(choice (const :tag "Default (M-return for newline, RET to send)" default)
+                 (const :tag "Newline on return (RET for newline, M-return to send)" newline-on-return)
+                 (const :tag "Shift-return (RET to send, S-return for newline)" newline-on-shift-return)
+                 (const :tag "Super-return (RET for newline, s-return to send)" super-return-to-send))
+  :group 'claude-code)
+
 ;; Forward declare variables to avoid compilation warnings
 (defvar eat-terminal)
 (defvar eat-term-name)
@@ -628,6 +642,9 @@ With triple prefix ARG (\\[universal-argument] \\[universal-argument] \\[univers
            (error "error starting claude")
            (signal 'claude-start-error "error starting claude"))))
 
+      ;; Setup our custom key bindings
+      (claude-code--setup-claude-buffer-keymap)
+
       ;; Set eat repl faces to inherit from claude-code-repl-face
       (claude-code--setup-repl-faces)
 
@@ -684,6 +701,39 @@ Returns a string with the errors or a message if no errors found."
    ;; No errors found by any method
    (t "No errors at point")))
 
+(defun claude-code--setup-claude-buffer-keymap ()
+  "Set up the local keymap for Claude Code buffers."
+  (let ((map (make-sparse-keymap)))
+    ;; Inherit all eat functionality by setting parent keymap
+    (set-keymap-parent map (current-local-map))
+
+    ;; make single ESC work in EAT claude buffer
+    (define-key map (kbd "ESC") "")
+
+    ;; bind C-g to ESC
+    (define-key map (kbd "C-g") "")
+
+    ;; Configure key bindings based on user preference
+    (pcase claude-code-newline-keybinding-style
+      ('default
+       ;; Default: M-return enters a line break, RET sends the command
+       (define-key map (kbd "<return>") (kbd "RET"))
+       (define-key map (kbd "<M-return>") "\e\C-m"))
+      ('newline-on-return
+       ;; Newline on return: RET enters a line break, M-return sends the command
+       (define-key map (kbd "<return>") "\e\C-m")
+       (define-key map (kbd "<M-return>") (kbd "RET")))
+      ('newline-on-shift-return
+       ;; Shift-return: RET sends the command, S-return enters a line break
+       (define-key map (kbd "<return>") (kbd "RET"))
+       (define-key map (kbd "<S-return>") "\e\C-m"))
+      ('super-return-to-send
+       ;; Super-return: RET enters a line break, s-return sends the command
+       (define-key map (kbd "<return>") "\e\C-m")
+       (define-key map (kbd "<s-return>") (kbd "RET"))))
+
+    (use-local-map map)))
+
 ;;;; Interactive Commands
 
 ;;;###autoload
@@ -714,7 +764,7 @@ switch to Claude buffer."
                       text)))
     (when full-text
       (let ((selected-buffer (claude-code--do-send-command full-text)))
-        (when (and (equal arg '(16)) selected-buffer)  ; Only switch buffer with C-u C-u
+        (when (and (equal arg '(16)) selected-buffer) ; Only switch buffer with C-u C-u
           (switch-to-buffer selected-buffer))))))
 
 ;;;###autoload
@@ -855,7 +905,18 @@ This is useful for saying \"No\" when Claude asks for confirmation without
 having to switch to the REPL buffer."
   (interactive)
   (claude-code--with-buffer
-    (eat-term-send-string eat-terminal (kbd "ESC"))))
+   (eat-term-send-string eat-terminal (kbd "ESC"))))
+
+;; [TODO] move to private area, extract string send fn (maybe)
+(defun claude-code--send-meta-return ()
+  "Send Meta-Return key sequence to the terminal."
+  (interactive)
+  (eat-term-send-string eat-terminal "\e\C-m"))
+
+(defun claude-code--send-return ()
+  "Send Return key to the terminal."
+  (interactive)
+  (eat-term-send-string eat-terminal (kbd "RET")))
 
 ;;;###autoload
 (defun claude-code-cycle-mode ()
@@ -867,8 +928,11 @@ Claude uses Shift-Tab to cycle through:
 - Plan mode"
   (interactive)
   (claude-code--with-buffer
-    (eat-term-send-string eat-terminal "\e[Z")))
+   (eat-term-send-string eat-terminal "\e[Z")))
 
+;; (define-key key-translation-map (kbd "ESC") "")
+
+;;;###autoload
 (defun claude-code-fork ()
   "Jump to a previous conversation by invoking the Claude fork command.
 
