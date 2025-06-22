@@ -9,6 +9,7 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 - Send commands to Claude with or without file/line context
 - Quick access to all Claude slash commands via transient menus
 - Customizable key bindings and appearance settings
+- Desktop notifications when Claude finishes processing and awaits input
 
 ## Installation
 
@@ -194,6 +195,21 @@ This allows you to have separate Claude conversations for different aspects of y
 ;;   'newline-on-shift-return - RET sends message, S-return inserts newline
 ;;   'super-return-to-send - RET inserts newline, s-return sends message
 (setq claude-code-newline-keybinding-style 'default)
+
+;; Enable or disable notifications when Claude finishes and awaits input (default is t)
+(setq claude-code-enable-notifications t)
+
+;; Customize the notification function (default is claude-code--default-notification)
+;; The function should accept two arguments: title and message
+;; The default function tries notifications-notify, then alert package, then message
+(setq claude-code-notification-function 'claude-code--default-notification)
+
+;; Example: Use your own notification function
+(defun my-claude-notification (title message)
+  "Custom notification function for Claude Code."
+  ;; Your custom notification logic here
+  (message "[%s] %s" title message))
+(setq claude-code-notification-function 'my-claude-notification)
 ```
 
 ### Customizing Window Position

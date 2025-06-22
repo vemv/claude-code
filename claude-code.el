@@ -156,6 +156,24 @@ This controls how the return key and its modifiers behave in Claude buffers:
                  (const :tag "Super-return (RET for newline, s-return to send)" super-return-to-send))
   :group 'claude-code)
 
+(defcustom claude-code-enable-notifications t
+  "Whether to show notifications when Claude finishes and awaits input."
+  :type 'boolean
+  :group 'claude-code)
+
+(defcustom claude-code-notification-function 'claude-code--default-notification
+  "Function to call for notifications.
+
+The function is called with two arguments:
+- TITLE: Title of the notification
+- MESSAGE: Body of the notification
+
+You can set this to your own custom notification function.
+The default function displays a message and pulses the modeline
+to provide visual feedback when Claude is ready for input."
+  :type 'function
+  :group 'claude-code)
+
 ;; Forward declare variables to avoid compilation warnings
 (defvar eat-terminal)
 (defvar eat-term-name)
@@ -577,7 +595,9 @@ ARGS is passed to ORIG-FUN unchanged."
                     (setq width-changed t)
                     ;; Update stored width
                     (puthash window current-width claude-code--window-widths))))))
-          ;; Return result only if a Claude window width changed, otherwise nil
+          ;; Return result only if a Claude window width changed,
+          ;; otherwise nil. Nil means do not send a window size
+          ;; changed event to the Claude process.
           (if width-changed result nil)))))
 
 (defun claude-code (&optional arg)
@@ -657,6 +677,10 @@ With triple prefix ARG (\\[universal-argument] \\[universal-argument] \\[univers
       ;; Add window configuration change hook to keep buffer scrolled to bottom
       (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
 
+      ;; Add notification handler when notifications are enabled
+      (when claude-code-enable-notifications
+        (setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify))
+
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
 
@@ -733,6 +757,42 @@ Returns a string with the errors or a message if no errors found."
        (define-key map (kbd "<s-return>") (kbd "RET"))))
 
     (use-local-map map)))
+
+(defun claude-code--pulse-modeline ()
+  "Pulse the modeline to provide visual notification."
+  ;; First pulse - invert
+  (invert-face 'mode-line)
+  (run-at-time 0.1 nil
+               (lambda ()
+                 ;; Return to normal
+                 (invert-face 'mode-line)
+                 ;; Second pulse
+                 (run-at-time 0.1 nil
+                              (lambda ()
+                                (invert-face 'mode-line)
+                                ;; Final return to normal
+                                (run-at-time 0.1 nil
+                                             (lambda ()
+                                               (invert-face 'mode-line))))))))
+
+(defun claude-code--default-notification (title message)
+  "Default notification function that displays a message and pulses the modeline.
+
+TITLE is the notification title.
+MESSAGE is the notification body."
+  ;; Display the message
+  (message "%s: %s" title message)
+  ;; Pulse the modeline for visual feedback
+  (claude-code--pulse-modeline))
+
+(defun claude-code--notify (_terminal)
+  "Notify the user that Claude has finished and is awaiting input.
+
+TERMINAL is the eat terminal parameter (not used)."
+  (when claude-code-enable-notifications
+    (funcall claude-code-notification-function
+             "Claude Ready"
+             "Waiting for your response")))
 
 ;;;; Interactive Commands
 
