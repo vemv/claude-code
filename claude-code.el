@@ -244,6 +244,27 @@ for each directory across multiple invocations.")
    ])
 
 ;;;; Private util functions
+(defmacro claude-code--with-buffer (&rest body)
+  "Execute BODY with the Claude buffer, handling buffer selection and display.
+
+Gets or prompts for the Claude buffer, executes BODY within that buffer's
+context, displays the buffer, and shows not-running message if no buffer
+is found."
+  `(if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
+       (with-current-buffer claude-code-buffer
+         ,@body
+         (display-buffer claude-code-buffer))
+     (claude-code--show-not-running-message)))
+
+(defun claude-code--buffer-p (buffer)
+  "Return non-nil if BUFFER is a Claude buffer.
+
+BUFFER can be either a buffer object or a buffer name string."
+  (let ((name (if (stringp buffer)
+                  buffer
+                (buffer-name buffer))))
+    (and name (string-match-p "^\\*claude:" name))))
+
 (defun claude-code--directory ()
   "Get get the root Claude directory for the current buffer.
 
@@ -263,8 +284,7 @@ If not in a project and no buffer file return `default-directory'."
 
 Returns a list of buffer objects."
   (cl-remove-if-not
-   (lambda (buf)
-     (string-match-p "^\\*claude:" (buffer-name buf)))
+   #'claude-code--buffer-p
    (buffer-list)))
 
 (defun claude-code--find-claude-buffers-for-directory (directory)
@@ -471,9 +491,6 @@ for consistent appearance."
   (dotimes (i 10)
     (let ((face (intern (format "eat-term-font-%d" i))))
       (funcall 'face-remap-add-relative face :inherit 'claude-code-repl-face)))
-  (dotimes (i 10)
-    (let ((face (intern (format "eat-term-font-%d" i))))
-      (funcall 'face-remap-add-relative face :inherit 'claude-code-repl-face)))
   (buffer-face-set :inherit 'claude-code-repl-face)
   (face-remap-add-relative 'nobreak-space :underline nil)
   (face-remap-add-relative 'eat-term-faint :foreground "#999999" :weight 'light))
@@ -538,7 +555,7 @@ ARGS is passed to ORIG-FUN unchanged."
         (let ((width-changed nil))
           (dolist (window (window-list))
             (let ((buffer (window-buffer window)))
-              (when (and buffer (string-match-p "^\\*claude" (buffer-name buffer)))
+              (when (and buffer (claude-code--buffer-p buffer))
                 (let ((current-width (window-width window))
                       (stored-width (gethash window claude-code--window-widths)))
                   ;; Check if this is a new window or if width changed
@@ -837,11 +854,8 @@ This selects the third option when Claude presents a numbered menu."
 This is useful for saying \"No\" when Claude asks for confirmation without
 having to switch to the REPL buffer."
   (interactive)
-  (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-      (with-current-buffer claude-code-buffer
-        (eat-term-send-string eat-terminal (kbd "ESC"))
-        (display-buffer claude-code-buffer))
-    (claude-code--show-not-running-message)))
+  (claude-code--with-buffer
+    (eat-term-send-string eat-terminal (kbd "ESC"))))
 
 ;;;###autoload
 (defun claude-code-cycle-mode ()
@@ -852,11 +866,8 @@ Claude uses Shift-Tab to cycle through:
 - Auto-accept edits mode
 - Plan mode"
   (interactive)
-  (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-      (with-current-buffer claude-code-buffer
-        (eat-term-send-string eat-terminal "\e[Z")
-        (display-buffer claude-code-buffer))
-    (claude-code--show-not-running-message)))
+  (claude-code--with-buffer
+    (eat-term-send-string eat-terminal "\e[Z")))
 
 (defun claude-code-fork ()
   "Jump to a previous conversation by invoking the Claude fork command.
@@ -900,25 +911,21 @@ enter Claude commands.
 
 Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (interactive)
-  (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-      (with-current-buffer claude-code-buffer
-        (eat-emacs-mode)
-        (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
-        (eat--set-cursor nil :invisible)
-        (message "Claude read-only mode enabled"))
-    (claude-code--show-not-running-message)))
+  (claude-code--with-buffer
+    (eat-emacs-mode)
+    (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
+    (eat--set-cursor nil :invisible)
+    (message "Claude read-only mode enabled")))
 
 ;;;###autoload
 (defun claude-code-exit-read-only-mode ()
   "Exit read-only mode and return to normal mode (eat semi-char mode)."
   (interactive)
-  (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-      (with-current-buffer claude-code-buffer
-        (eat-semi-char-mode)
-        (setq-local eat-invisible-cursor-type nil)
-        (eat--set-cursor nil :invisible)
-        (message "Claude semi-char mode enabled"))
-    (claude-code--show-not-running-message)))
+  (claude-code--with-buffer
+    (eat-semi-char-mode)
+    (setq-local eat-invisible-cursor-type nil)
+    (eat--set-cursor nil :invisible)
+    (message "Claude semi-char mode enabled")))
 
 ;;;###autoload
 (defun claude-code-toggle-read-only-mode ()
@@ -929,12 +936,10 @@ regular buffer. This mode is useful for selecting text in the Claude
 buffer. However, you are not allowed to change the buffer contents or
 enter Claude commands."
   (interactive)
-  (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-      (with-current-buffer claude-code-buffer
-        (if eat--semi-char-mode
-            (claude-code-read-only-mode)
-          (claude-code-exit-read-only-mode)))
-    (claude-code--show-not-running-message)))
+  (claude-code--with-buffer
+    (if eat--semi-char-mode
+        (claude-code-read-only-mode)
+      (claude-code-exit-read-only-mode))))
 
 ;;;; Mode definition
 ;;;###autoload
