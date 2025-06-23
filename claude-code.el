@@ -470,10 +470,11 @@ This function handles the proper cleanup sequence for a Claude buffer:
 1. Remove the window configuration change hook
 2. Kill the eat process
 3. Kill the buffer"
-  (with-current-buffer buffer
-    (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
-    (eat-kill-process)
-    (kill-buffer buffer)))
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
+      (eat-kill-process)
+      (kill-buffer buffer))))
 
 (defun claude-code--cleanup-directory-mapping ()
   "Remove entries from directory-buffer map when this buffer is killed.
@@ -626,14 +627,28 @@ With triple prefix ARG (\\[universal-argument] \\[universal-argument] \\[univers
          ;; Check for existing Claude instances in this directory
          (existing-buffers (claude-code--find-claude-buffers-for-directory dir))
          ;; Determine instance name
+         (existing-instance-names (mapcar (lambda (buf)
+                                            (or (claude-code--extract-instance-name-from-buffer-name
+                                                 (buffer-name buf))
+                                                "default"))
+                                          existing-buffers))
          (instance-name (if existing-buffers
-                            (read-string (format "Instances already running for %s, new instance name (existing: %s): "
-                                                 abbreviated-dir
-                                                 (mapconcat (lambda (buf)
-                                                              (or (claude-code--extract-instance-name-from-buffer-name
-                                                                   (buffer-name buf))
-                                                                  "default"))
-                                                            existing-buffers ", ")))
+                            (let ((proposed-name ""))
+                              (while (or (string-empty-p proposed-name)
+                                         (member proposed-name existing-instance-names))
+                                (setq proposed-name
+                                      (read-string (format "Instances already running for %s (existing: %s), new instance name: "
+                                                           abbreviated-dir
+                                                           (mapconcat #'identity existing-instance-names ", "))
+                                                   nil nil proposed-name))
+                                (cond
+                                 ((string-empty-p proposed-name)
+                                  (message "Instance name cannot be empty. Please enter a name.")
+                                  (sit-for 1))
+                                 ((member proposed-name existing-instance-names)
+                                  (message "Instance name '%s' already exists. Please choose a different name." proposed-name)
+                                  (sit-for 1))))
+                              proposed-name)
                           "default"))
          (buffer-name (claude-code--buffer-name instance-name))
          (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
