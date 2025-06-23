@@ -46,7 +46,8 @@ You need to set your own key binding for the Claude Code command map. The exampl
 
 ### Basic Commands
 
-- `claude-code` (`C-c c c`) - Start Claude. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), continues previous conversation. With triple prefix (`C-u C-u C-u`), prompts for the project directory
+- `claude-code` (`C-c c c`) - Start Claude. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
+- `claude-code-continue` (`C-c c C`) - Start Claude and continue the previous conversation. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-toggle` (`C-c c t`) - Toggle Claude window
 - `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
 - `claude-code-kill` (`C-c c k`) - Kill Claude session. With prefix arg (`C-u`), kills ALL Claude instances across all directories
@@ -88,12 +89,11 @@ The command automatically detects the current mode and switches to the other:
 
 ### Continuing Previous Conversations
 
-The `claude-code` command supports continuing previous conversations using Claude's `--continue`
-flag:
+Use the `claude-code-continue` command (`C-c c C`) to resume where you left off in your previous Claude session. This command uses Claude's `--continue` flag to restore your conversation history.
 
-- Double prefix arg (`C-u C-u C-c c c`) - Start Claude and continue previous conversation
-
-This allows you to resume where you left off in your previous Claude session.
+- `claude-code-continue` - Continue previous conversation
+- With prefix arg (`C-u`) - Continue conversation and switch to buffer
+- With double prefix arg (`C-u C-u`) - Continue conversation in a specific directory (prompts for directory)
 
 ### Transient Menus
 
@@ -210,6 +210,11 @@ This allows you to have separate Claude conversations for different aspects of y
   ;; Your custom notification logic here
   (message "[%s] %s" title message))
 (setq claude-code-notification-function 'my-claude-notification)
+
+;; Configure kill confirmation behavior (default is t)
+;; When t, claude-code-kill prompts for confirmation before killing instances
+;; When nil, kills Claude instances without confirmation
+(setq claude-code-confirm-kill t)
 ```
 
 ### Customizing Window Position

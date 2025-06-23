@@ -13,10 +13,20 @@ All notable changes to claude-code.el will be documented in this file.
   - `'super-return-to-send`: RET inserts newline, s-return sends message
 - Single ESC key now works as expected in Claude buffers for canceling operations
 - C-g can be used as an alternative to ESC for canceling in Claude buffers
+- New `claude-code-confirm-kill` customization variable to control kill confirmation prompts
+  - When `t` (default), prompts for confirmation before killing Claude instances
+  - When `nil`, kills Claude instances without confirmation
+- New `claude-code-continue` command to explicitly continue previous conversations
+  - Bound to `C-c c C` in the command map
+  - Supports same prefix arguments as `claude-code` command
 
 ### Changed
 
 - Renamed internal variable from `claude-code-key-binding-style` to `claude-code-newline-keybinding-style` for clarity
+- Simplified `claude-code` command prefix arguments:
+  - Single prefix (`C-u`) now switches to buffer after creating
+  - Double prefix (`C-u C-u`) now prompts for project directory
+  - Removed support for continuing conversations (use `claude-code-continue` instead)
 
 ## [0.3.8]
 
