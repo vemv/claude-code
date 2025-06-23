@@ -728,11 +728,8 @@ Returns a string with the errors or a message if no errors found."
 (defun claude-code--setup-claude-buffer-keymap ()
   "Set up the local keymap for Claude Code buffers."
   (let ((map (make-sparse-keymap)))
-    ;; Inherit all eat functionality by setting parent keymap
+    ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
-
-    ;; make single ESC work in EAT claude buffer
-    (define-key map (kbd "ESC") "")
 
     ;; bind C-g to ESC
     (define-key map (kbd "C-g") "")
