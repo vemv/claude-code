@@ -731,9 +731,6 @@ Returns a string with the errors or a message if no errors found."
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
 
-    ;; bind C-g to ESC
-    (define-key map (kbd "C-g") "")
-
     ;; Configure key bindings based on user preference
     (pcase claude-code-newline-keybinding-style
       ('default
