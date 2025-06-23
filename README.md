@@ -201,7 +201,7 @@ This allows you to have separate Claude conversations for different aspects of y
 
 ;; Customize the notification function (default is claude-code--default-notification)
 ;; The function should accept two arguments: title and message
-;; The default function tries notifications-notify, then alert package, then message
+;; The default function displays a message and pulses the modeline for visual feedback
 (setq claude-code-notification-function 'claude-code--default-notification)
 
 ;; Example: Use your own notification function

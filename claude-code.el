@@ -161,7 +161,7 @@ This controls how the return key and its modifiers behave in Claude buffers:
   :type 'boolean
   :group 'claude-code)
 
-(defcustom claude-code-notification-function 'claude-code--default-notification
+(defcustom claude-code-notification-function 'claude-code-default-notification
   "Function to call for notifications.
 
 The function is called with two arguments:
@@ -677,9 +677,9 @@ With triple prefix ARG (\\[universal-argument] \\[universal-argument] \\[univers
       ;; Add window configuration change hook to keep buffer scrolled to bottom
       (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
 
-      ;; Add notification handler when notifications are enabled
+      ;; Add notification handler if notifications are enabledd
       (when claude-code-enable-notifications
-        (setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify))
+        (setq-local eat--bell #'claude-code--notify))
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
@@ -775,7 +775,7 @@ Returns a string with the errors or a message if no errors found."
                                              (lambda ()
                                                (invert-face 'mode-line))))))))
 
-(defun claude-code--default-notification (title message)
+(defun claude-code-default-notification (title message)
   "Default notification function that displays a message and pulses the modeline.
 
 TITLE is the notification title.
@@ -783,7 +783,8 @@ MESSAGE is the notification body."
   ;; Display the message
   (message "%s: %s" title message)
   ;; Pulse the modeline for visual feedback
-  (claude-code--pulse-modeline))
+  (claude-code--pulse-modeline)
+  (message "%s: %s" title message))
 
 (defun claude-code--notify (_terminal)
   "Notify the user that Claude has finished and is awaiting input.
