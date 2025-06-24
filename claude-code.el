@@ -16,6 +16,7 @@
 (require 'transient)
 (require 'project)
 (require 'cl-lib)
+(eval-when-compile (require 'eat nil t))
 
 ;; Declare external variables and functions from eat package
 (defvar eat--semi-char-mode)
@@ -27,6 +28,7 @@
 (declare-function eat-term-display-cursor "eat" (terminal))
 (declare-function eat-term-display-beginning "eat" (terminal))
 (declare-function eat-term-live-p "eat" (terminal))
+(declare-function eat-term-parameter "eat" (terminal parameter) t)
 
 ;;;; Customization optionsy
 (defgroup claude-code nil
@@ -623,7 +625,6 @@ EXTRA-SWITCHES is a list of additional command-line switches to pass to Claude.
 With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
   (require 'eat)
-
   (let* ((dir (if (equal arg '(16))  ; Double prefix
                   (read-directory-name "Project directory: ")
                 (claude-code--directory)))
@@ -701,7 +702,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Add notification handler if notifications are enabledd
       (when claude-code-enable-notifications
         ;; (setq-local eat--bell #'claude-code--notify)
-        (setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify))
+        (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
