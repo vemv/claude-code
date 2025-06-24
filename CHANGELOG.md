@@ -36,6 +36,10 @@ All notable changes to claude-code.el will be documented in this file.
   - Bound to `C-c c B` in the command map
   - Shows all Claude instances across all projects and directories
   - Provides a dedicated command for global instance selection (similar to `C-u claude-code-switch-to-buffer`)
+- New `claude-code-kill-all` command to kill all Claude instances
+  - Bound to `C-c c K` in the command map
+  - Kills all Claude instances across all projects and directories
+  - Provides dedicated functionality previously available via `C-u claude-code-kill`
 
 ### Changed
 
@@ -44,6 +48,8 @@ All notable changes to claude-code.el will be documented in this file.
   - Single prefix (`C-u`) now switches to buffer after creating
   - Double prefix (`C-u C-u`) now prompts for project directory
   - Removed support for continuing conversations (use `claude-code-continue` instead)
+- `claude-code-kill` no longer accepts prefix arguments
+  - Use the new `claude-code-kill-all` command to kill all instances
 
 ### Fixed
 

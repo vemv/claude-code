@@ -221,6 +221,7 @@ for each directory across multiple invocations.")
     (define-key map "d" 'claude-code-start-in-directory)
     (define-key map "e" 'claude-code-fix-error-at-point)
     (define-key map "k" 'claude-code-kill)
+    (define-key map "K" 'claude-code-kill-all)
     (define-key map "m" 'claude-code-transient)
     (define-key map "n" 'claude-code-send-escape)
     (define-key map "f" 'claude-code-fork)
@@ -249,6 +250,7 @@ for each directory across multiple invocations.")
     ("i" "New instance" claude-code-new-instance)
     ("d" "Start in directory" claude-code-start-in-directory)
     ("k" "Kill Claude" claude-code-kill)
+    ("K" "Kill all Claude instances" claude-code-kill-all)
     ]
    ["Manage Claude"
     ("t" "Toggle claude window" claude-code-toggle)
@@ -1025,36 +1027,40 @@ directories, allowing you to choose which one to switch to."
   (interactive)
   (claude-code--switch-to-all-instances-helper))
 
-;;;###autoload
-(defun claude-code-kill (&optional arg)
-  "Kill Claude process and close its window.
-
-With prefix ARG, kill ALL Claude processes across all directories."
-  (interactive "P")
-  (if arg
-      ;; Kill all Claude instances
-      (let ((all-buffers (claude-code--find-all-claude-buffers)))
-        (if all-buffers
-            (let* ((buffer-count (length all-buffers))
-                   (plural-suffix (if (= buffer-count 1) "" "s")))
-              (if claude-code-confirm-kill
-                  (when (yes-or-no-p (format "Kill %d Claude instance%s? " buffer-count plural-suffix))
-                    (dolist (buffer all-buffers)
-                      (claude-code--kill-buffer buffer))
-                    (message "%d Claude instance%s killed" buffer-count plural-suffix))
+(defun claude-code--kill-all-instances ()
+  "Kill all Claude instances across all directories."
+  (let ((all-buffers (claude-code--find-all-claude-buffers)))
+    (if all-buffers
+        (let* ((buffer-count (length all-buffers))
+               (plural-suffix (if (= buffer-count 1) "" "s")))
+          (if claude-code-confirm-kill
+              (when (yes-or-no-p (format "Kill %d Claude instance%s? " buffer-count plural-suffix))
                 (dolist (buffer all-buffers)
                   (claude-code--kill-buffer buffer))
-                (message "%d Claude instance%s killed" buffer-count plural-suffix)))
-          (claude-code--show-not-running-message)))
-    ;; Kill single instance
-    (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-        (if claude-code-confirm-kill
-            (when (yes-or-no-p "Kill Claude instance? ")
-              (claude-code--kill-buffer claude-code-buffer)
-              (message "Claude instance killed"))
-          (claude-code--kill-buffer claude-code-buffer)
-          (message "Claude instance killed"))
+                (message "%d Claude instance%s killed" buffer-count plural-suffix))
+            (dolist (buffer all-buffers)
+              (claude-code--kill-buffer buffer))
+            (message "%d Claude instance%s killed" buffer-count plural-suffix)))
       (claude-code--show-not-running-message))))
+
+;;;###autoload
+(defun claude-code-kill ()
+  "Kill Claude process and close its window."
+  (interactive)
+  (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
+      (if claude-code-confirm-kill
+          (when (yes-or-no-p "Kill Claude instance? ")
+            (claude-code--kill-buffer claude-code-buffer)
+            (message "Claude instance killed"))
+        (claude-code--kill-buffer claude-code-buffer)
+        (message "Claude instance killed"))
+    (claude-code--show-not-running-message)))
+
+;;;###autoload
+(defun claude-code-kill-all ()
+  "Kill ALL Claude processes across all directories."
+  (interactive)
+  (claude-code--kill-all-instances))
 
 ;;;###autoload
 (defun claude-code-send-command (cmd &optional arg)

@@ -54,7 +54,8 @@ You need to set your own key binding for the Claude Code command map. The exampl
 - `claude-code-toggle` (`C-c c t`) - Toggle Claude window
 - `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
 - `claude-code-select-buffer` (`C-c c B`) - Select and switch to a Claude buffer from all running instances across all projects and directories
-- `claude-code-kill` (`C-c c k`) - Kill Claude session. With prefix arg (`C-u`), kills ALL Claude instances across all directories
+- `claude-code-kill` (`C-c c k`) - Kill Claude session
+- `claude-code-kill-all` (`C-c c K`) - Kill ALL Claude instances across all directories
 - `claude-code-send-command` (`C-c c s`) - Send command to Claude
 - `claude-code-send-command-with-context` (`C-c c x`) - Send command with current file and line context
 - `claude-code-send-region` (`C-c c r`) - Send the current region or buffer to Claude. With prefix arg (`C-u`), prompts for instructions to add to the text. With double prefix (`C-u C-u`), adds instructions and switches to Claude buffer
