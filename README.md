@@ -48,6 +48,7 @@ You need to set your own key binding for the Claude Code command map. The exampl
 
 - `claude-code` (`C-c c c`) - Start Claude. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-continue` (`C-c c C`) - Start Claude and continue the previous conversation. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
+- `claude-code-resume` (`C-c c R`) - Resume a specific Claude session by ID or choose interactively. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-toggle` (`C-c c t`) - Toggle Claude window
 - `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
 - `claude-code-kill` (`C-c c k`) - Kill Claude session. With prefix arg (`C-u`), kills ALL Claude instances across all directories
@@ -87,13 +88,26 @@ The command automatically detects the current mode and switches to the other:
 - If in normal terminal mode (semi-char mode), it switches to read-only mode
 - If in read-only mode (emacs mode), it switches back to normal terminal mode
 
-### Continuing Previous Conversations
+### Continuing and Resuming Conversations
 
-Use the `claude-code-continue` command (`C-c c C`) to resume where you left off in your previous Claude session. This command uses Claude's `--continue` flag to restore your conversation history.
+Claude Code provides two ways to restore previous conversations:
 
-- `claude-code-continue` - Continue previous conversation
+#### Continue Most Recent Conversation
+
+Use the `claude-code-continue` command (`C-c c C`) to resume where you left off in your most recent Claude session in the current directory. This command uses Claude's `--continue` flag.
+
+- `claude-code-continue` - Continue the most recent conversation in the current directory
 - With prefix arg (`C-u`) - Continue conversation and switch to buffer
 - With double prefix arg (`C-u C-u`) - Continue conversation in a specific directory (prompts for directory)
+
+#### Resume Specific Session
+
+Use the `claude-code-resume` command (`C-c c R`) to resume a specific past session. This command uses Claude's `--resume` flag and allows you to:
+
+- Resume any past session by selecting from an interactive list
+- Resume a specific session if you know its ID (can be passed programmatically)
+- With prefix arg (`C-u`) - Resume session and switch to buffer
+- With double prefix arg (`C-u C-u`) - Resume session in a specific directory (prompts for directory)
 
 ### Transient Menus
 

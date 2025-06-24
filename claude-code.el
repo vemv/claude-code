@@ -213,6 +213,7 @@ for each directory across multiple invocations.")
     (define-key map "b" 'claude-code-switch-to-buffer)
     (define-key map "c" 'claude-code)
     (define-key map "C" 'claude-code-continue)
+    (define-key map "R" 'claude-code-resume)
     (define-key map "e" 'claude-code-fix-error-at-point)
     (define-key map "k" 'claude-code-kill)
     (define-key map "m" 'claude-code-transient)
@@ -238,6 +239,7 @@ for each directory across multiple invocations.")
   ["Claude Commands"
    ["Manage Claude" ("c" "Start Claude" claude-code)
     ("C" "Continue conversation" claude-code-continue)
+    ("R" "Resume session" claude-code-resume)
     ("t" "Toggle claude window" claude-code-toggle)
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
     ("k" "Kill Claude" claude-code-kill)
@@ -770,6 +772,124 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
          (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
          (buffer (get-buffer-create buffer-name))
          (program-switches (append claude-code-program-switches '("--continue"))))
+    ;; Start the eat process
+    (with-current-buffer buffer
+      (cd dir)
+      (setq-local eat-term-name claude-code-term-name)
+
+      ;; Turn off shell integration, as we don't need it for Claude
+      (setq-local eat-enable-directory-tracking t
+                  eat-enable-shell-command-history nil
+                  eat-enable-shell-prompt-annotation nil)
+      
+      ;; Conditionally disable scrollback truncation
+      (when claude-code-never-truncate-claude-buffer
+        (setq-local eat-term-scrollback-size nil))
+
+      (let ((process-adaptive-read-buffering nil))
+        (condition-case nil
+            (apply #'eat-make trimmed-buffer-name claude-code-program nil program-switches)
+          (error
+           (error "error starting claude")
+           (signal 'claude-start-error "error starting claude"))))
+
+      ;; Setup our custom key bindings
+      (claude-code--setup-claude-buffer-keymap)
+
+      ;; Set eat repl faces to inherit from claude-code-repl-face
+      (claude-code--setup-repl-faces)
+
+      ;; Add advice to only nottify claude on window width changes, to avoid uncessary flickering
+      (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice)
+
+      ;; Set our custom synchronize scroll function
+      (setq-local eat--synchronize-scroll-function #'claude-code--synchronize-scroll)
+
+      ;; Add window configuration change hook to keep buffer scrolled to bottom
+      (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
+
+      ;; Add notification handler if notifications are enabledd
+      (when claude-code-enable-notifications
+        ;; (setq-local eat--bell #'claude-code--notify)
+        (setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify))
+
+      ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
+      (sleep-for claude-code-startup-delay)
+
+      ;; Add cleanup hook to remove directory mappings when buffer is killed
+      (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)
+
+      ;; run start hooks and show the claude buffer
+      (run-hooks 'claude-code-start-hook)
+      (display-buffer buffer))
+    (when switch-after
+      (switch-to-buffer buffer))))
+
+;;;###autoload
+(defun claude-code-resume (&optional session-id arg)
+  "Resume a specific Claude session by ID or choose interactively.
+
+This command starts Claude with the --resume flag to resume a
+specific past session. If SESSION-ID is provided, resumes that
+specific session. Otherwise, Claude will present an interactive
+list of past sessions to choose from.
+
+If current buffer belongs to a project start Claude in the project's
+root directory. Otherwise start in the directory of the current buffer
+file, or the current value of `default-directory' if no project and no
+buffer file.
+
+With prefix ARG (\\[universal-argument]), switch to buffer after creating.
+With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
+  (interactive "P")
+
+  ;; When called interactively, the session-id will be nil and arg will contain prefix arg
+  (when (and (called-interactively-p 'any) session-id)
+    ;; session-id contains the prefix arg when called interactively
+    (setq arg session-id
+          session-id nil))
+
+  ;; Forward declare variables to avoid compilation warnings
+  (require 'eat)
+
+  (let* ((dir (if (equal arg '(16))  ; Double prefix
+                  (read-directory-name "Project directory: ")
+                (claude-code--directory)))
+         (abbreviated-dir (abbreviate-file-name dir))
+         (switch-after (equal arg '(4))) ; Single prefix
+         (default-directory dir)
+         ;; Check for existing Claude instances in this directory
+         (existing-buffers (claude-code--find-claude-buffers-for-directory dir))
+         ;; Determine instance name
+         (existing-instance-names (mapcar (lambda (buf)
+                                            (or (claude-code--extract-instance-name-from-buffer-name
+                                                 (buffer-name buf))
+                                                "default"))
+                                          existing-buffers))
+         (instance-name (if existing-buffers
+                            (let ((proposed-name ""))
+                              (while (or (string-empty-p proposed-name)
+                                         (member proposed-name existing-instance-names))
+                                (setq proposed-name
+                                      (read-string (format "Instances already running for %s (existing: %s), new instance name: "
+                                                           abbreviated-dir
+                                                           (mapconcat #'identity existing-instance-names ", "))
+                                                   nil nil proposed-name))
+                                (cond
+                                 ((string-empty-p proposed-name)
+                                  (message "Instance name cannot be empty. Please enter a name.")
+                                  (sit-for 1))
+                                 ((member proposed-name existing-instance-names)
+                                  (message "Instance name '%s' already exists. Please choose a different name." proposed-name)
+                                  (sit-for 1))))
+                              proposed-name)
+                          "default"))
+         (buffer-name (claude-code--buffer-name instance-name))
+         (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
+         (buffer (get-buffer-create buffer-name))
+         (program-switches (if session-id
+                               (append claude-code-program-switches (list "--resume" session-id))
+                             (append claude-code-program-switches '("--resume")))))
     ;; Start the eat process
     (with-current-buffer buffer
       (cd dir)

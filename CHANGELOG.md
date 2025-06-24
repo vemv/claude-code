@@ -19,6 +19,11 @@ All notable changes to claude-code.el will be documented in this file.
 - New `claude-code-continue` command to explicitly continue previous conversations
   - Bound to `C-c c C` in the command map
   - Supports same prefix arguments as `claude-code` command
+- New `claude-code-resume` command to resume specific past sessions
+  - Bound to `C-c c R` in the command map
+  - Allows resuming any past session from an interactive list
+  - Can programmatically resume a specific session by ID
+  - Supports same prefix arguments as `claude-code` command
 
 ### Changed
 
