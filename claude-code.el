@@ -242,16 +242,21 @@ for each directory across multiple invocations.")
 (transient-define-prefix claude-code-transient ()
   "Claude command menu."
   ["Claude Commands"
-   ["Manage Claude" ("c" "Start Claude" claude-code)
+   ["Start/Stop Claude"
+    ("c" "Start Claude" claude-code)
     ("C" "Continue conversation" claude-code-continue)
     ("R" "Resume session" claude-code-resume)
     ("i" "New instance" claude-code-new-instance)
     ("d" "Start in directory" claude-code-start-in-directory)
+    ("k" "Kill Claude" claude-code-kill)
+    ]
+   ["Manage Claude"
     ("t" "Toggle claude window" claude-code-toggle)
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
     ("B" "Select from all Claude buffers" claude-code-select-buffer)
-    ("k" "Kill Claude" claude-code-kill)
-    ("z" "Toggle read-only mode" claude-code-toggle-read-only-mode)]
+    ("z" "Toggle read-only mode" claude-code-toggle-read-only-mode)
+    ("TAB" "Cycle Claude mode" claude-code-cycle-mode :transient t)
+    ]
    ["Send Commands to Claude" ("s" "Send command" claude-code-send-command)
     ("x" "Send command with context" claude-code-send-command-with-context)
     ("r" "Send region or buffer" claude-code-send-region)
@@ -263,7 +268,7 @@ for each directory across multiple invocations.")
     ("1" "Send \"1\"" claude-code-send-1)
     ("2" "Send \"2\"" claude-code-send-2)
     ("3" "Send \"3\"" claude-code-send-3)
-    ("TAB" "Cycle Claude mode" claude-code-cycle-mode :transient t)]])
+    ]])
 
 ;;;###autoload (autoload 'claude-code-slash-commands "claude-code" nil t)
 (transient-define-prefix claude-code-slash-commands ()
