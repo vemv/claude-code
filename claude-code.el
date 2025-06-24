@@ -435,7 +435,9 @@ Returns the buffer containing the terminal.")
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal."
   (claude-code--ensure-eat)
-  (apply #'eat-make buffer-name program nil switches))
+  (let* ((process-environment (append (nconc (list "TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true")) process-environment))
+         (result (apply #'eat-make buffer-name program nil switches)))
+    result))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql eat)) terminal string)
   "Send STRING to eat TERMINAL."
