@@ -49,6 +49,7 @@ You need to set your own key binding for the Claude Code command map. The exampl
 - `claude-code` (`C-c c c`) - Start Claude. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-continue` (`C-c c C`) - Start Claude and continue the previous conversation. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-resume` (`C-c c R`) - Resume a specific Claude session by ID or choose interactively. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
+- `claude-code-new-instance` (`C-c c i`) - Create a new Claude instance with a custom name. Always prompts for instance name, unlike `claude-code` which uses "default" when no instances exist. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-start-in-directory` (`C-c c d`) - Prompt for a directory and start Claude there. With prefix arg (`C-u`), switches to the Claude buffer after creating
 - `claude-code-toggle` (`C-c c t`) - Toggle Claude window
 - `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
@@ -141,6 +142,7 @@ The cursor appearance in read-only mode can be customized via the `claude-code-r
 
 - When you start Claude with `claude-code`, it creates an instance for the current directory
 - If a Claude instance already exists for the directory, you'll be prompted to name the new instance (e.g., "tests", "docs")
+- You can also use `claude-code-new-instance` to explicitly create a new instance with a custom name
 - Buffer names follow the format:
   - `*claude:/path/to/directory*` for the default instance
   - `*claude:/path/to/directory:instance-name*` for named instances (e.g., `*claude:/home/user/project:tests*`)

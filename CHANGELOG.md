@@ -28,6 +28,10 @@ All notable changes to claude-code.el will be documented in this file.
   - Bound to `C-c c d` in the command map
   - Always prompts for directory (equivalent to `C-u C-u claude-code`)
   - With prefix arg, switches to buffer after creating
+- New `claude-code-new-instance` command to create a new Claude instance with a custom name
+  - Bound to `C-c c i` in the command map
+  - Always prompts for instance name (unlike `claude-code` which uses "default" for the first instance)
+  - Supports same prefix arguments as `claude-code` command
 
 ### Changed
 
@@ -36,6 +40,11 @@ All notable changes to claude-code.el will be documented in this file.
   - Single prefix (`C-u`) now switches to buffer after creating
   - Double prefix (`C-u C-u`) now prompts for project directory
   - Removed support for continuing conversations (use `claude-code-continue` instead)
+
+### Fixed
+
+- Fixed startup error "Symbol's function definition is void: (setf eat-term-parameter)" that occurred when starting claude-code for the first time
+  - Added proper compile-time handling of eat package dependencies
 
 ## [0.3.8]
 

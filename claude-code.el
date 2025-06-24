@@ -216,6 +216,7 @@ for each directory across multiple invocations.")
     (define-key map "c" 'claude-code)
     (define-key map "C" 'claude-code-continue)
     (define-key map "R" 'claude-code-resume)
+    (define-key map "i" 'claude-code-new-instance)
     (define-key map "d" 'claude-code-start-in-directory)
     (define-key map "e" 'claude-code-fix-error-at-point)
     (define-key map "k" 'claude-code-kill)
@@ -243,6 +244,7 @@ for each directory across multiple invocations.")
    ["Manage Claude" ("c" "Start Claude" claude-code)
     ("C" "Continue conversation" claude-code-continue)
     ("R" "Resume session" claude-code-resume)
+    ("i" "New instance" claude-code-new-instance)
     ("d" "Start in directory" claude-code-start-in-directory)
     ("t" "Toggle claude window" claude-code-toggle)
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
@@ -474,6 +476,32 @@ If not in a project and no buffer file, raise an error."
           (format "*claude:%s*" (abbreviate-file-name (file-truename dir))))
       (error "Cannot determine Claude directory - no `default-directory'!"))))
 
+(defun claude-code--prompt-for-instance-name (dir existing-instance-names &optional force-prompt)
+  "Prompt user for a new instance name for directory DIR.
+
+EXISTING-INSTANCE-NAMES is a list of existing instance names.
+If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
+  (if (or existing-instance-names force-prompt)
+      (let ((proposed-name ""))
+        (while (or (string-empty-p proposed-name)
+                   (member proposed-name existing-instance-names))
+          (setq proposed-name
+                (read-string (if (and existing-instance-names (not force-prompt))
+                                 (format "Instances already running for %s (existing: %s), new instance name: "
+                                         (abbreviate-file-name dir)
+                                         (mapconcat #'identity existing-instance-names ", "))
+                               (format "Instance name for %s: " (abbreviate-file-name dir)))
+                             nil nil proposed-name))
+          (cond
+           ((string-empty-p proposed-name)
+            (message "Instance name cannot be empty. Please enter a name.")
+            (sit-for 1))
+           ((member proposed-name existing-instance-names)
+            (message "Instance name '%s' already exists. Please choose a different name." proposed-name)
+            (sit-for 1))))
+        proposed-name)
+    "default"))
+
 (defun claude-code--show-not-running-message ()
   "Show a message that Claude is not running in any directory."
   (message "Claude is not running"))
@@ -616,11 +644,12 @@ ARGS is passed to ORIG-FUN unchanged."
           ;; changed event to the Claude process.
           (if width-changed result nil)))))
 
-(defun claude-code--start (arg extra-switches)
+(defun claude-code--start (arg extra-switches &optional force-prompt)
   "Start Claude with given command-line EXTRA-SWITCHES.
 
 ARG is the prefix argument controlling directory and buffer switching.
 EXTRA-SWITCHES is a list of additional command-line switches to pass to Claude.
+If FORCE-PROMPT is non-nil, always prompt for instance name.
 
 With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
@@ -628,35 +657,18 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
   (let* ((dir (if (equal arg '(16))  ; Double prefix
                   (read-directory-name "Project directory: ")
                 (claude-code--directory)))
-         (abbreviated-dir (abbreviate-file-name dir))
          (switch-after (equal arg '(4))) ; Single prefix
          (default-directory dir)
          ;; Check for existing Claude instances in this directory
          (existing-buffers (claude-code--find-claude-buffers-for-directory dir))
-         ;; Determine instance name
+         ;; Get existing instance names
          (existing-instance-names (mapcar (lambda (buf)
                                             (or (claude-code--extract-instance-name-from-buffer-name
                                                  (buffer-name buf))
                                                 "default"))
                                           existing-buffers))
-         (instance-name (if existing-buffers
-                            (let ((proposed-name ""))
-                              (while (or (string-empty-p proposed-name)
-                                         (member proposed-name existing-instance-names))
-                                (setq proposed-name
-                                      (read-string (format "Instances already running for %s (existing: %s), new instance name: "
-                                                           abbreviated-dir
-                                                           (mapconcat #'identity existing-instance-names ", "))
-                                                   nil nil proposed-name))
-                                (cond
-                                 ((string-empty-p proposed-name)
-                                  (message "Instance name cannot be empty. Please enter a name.")
-                                  (sit-for 1))
-                                 ((member proposed-name existing-instance-names)
-                                  (message "Instance name '%s' already exists. Please choose a different name." proposed-name)
-                                  (sit-for 1))))
-                              proposed-name)
-                          "default"))
+         ;; Prompt for instance name (only if instances exist, or force-prompt is true)
+         (instance-name (claude-code--prompt-for-instance-name dir existing-instance-names force-prompt))
          (buffer-name (claude-code--buffer-name instance-name))
          (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
          (buffer (get-buffer-create buffer-name))
@@ -706,7 +718,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
-
+      
       ;; Add cleanup hook to remove directory mappings when buffer is killed
       (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)
 
@@ -790,6 +802,26 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
                             (list "--resume" session-id)
                           '("--resume"))))
     (claude-code--start arg extra-switches)))
+
+;;;###autoload
+(defun claude-code-new-instance (&optional arg)
+  "Create a new Claude instance, prompting for instance name.
+
+This command always prompts for an instance name, unlike `claude-code'
+which uses \"default\" when no instances exist.
+
+If current buffer belongs to a project start Claude in the project's
+root directory. Otherwise start in the directory of the current buffer
+file, or the current value of `default-directory' if no project and no
+buffer file.
+
+With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
+With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt
+for the project directory."
+  (interactive "P")
+  
+  ;; Call claude-code--start with force-prompt=t
+  (claude-code--start arg nil t))
 
 (defun claude-code--format-errors-at-point ()
   "Format errors at point as a string with file and line numbers.
