@@ -213,6 +213,7 @@ for each directory across multiple invocations.")
   (let ((map (make-sparse-keymap)))
     (define-key map "/" 'claude-code-slash-commands)
     (define-key map "b" 'claude-code-switch-to-buffer)
+    (define-key map "B" 'claude-code-select-buffer)
     (define-key map "c" 'claude-code)
     (define-key map "C" 'claude-code-continue)
     (define-key map "R" 'claude-code-resume)
@@ -248,6 +249,7 @@ for each directory across multiple invocations.")
     ("d" "Start in directory" claude-code-start-in-directory)
     ("t" "Toggle claude window" claude-code-toggle)
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
+    ("B" "Select from all Claude buffers" claude-code-select-buffer)
     ("k" "Kill Claude" claude-code-kill)
     ("z" "Toggle read-only mode" claude-code-toggle-read-only-mode)]
    ["Send Commands to Claude" ("s" "Send command" claude-code-send-command)
@@ -974,6 +976,28 @@ If the Claude buffer doesn't exist, create it."
       (claude-code--show-not-running-message))))
 
 ;;;###autoload
+(defun claude-code--switch-to-all-instances-helper ()
+  "Helper function to switch to a Claude buffer from all available instances.
+
+Returns t if a buffer was selected and switched to, nil otherwise."
+  (let ((all-buffers (claude-code--find-all-claude-buffers)))
+    (cond
+     ((null all-buffers)
+      (claude-code--show-not-running-message)
+      nil)
+     ((= (length all-buffers) 1)
+      ;; Only one buffer, just switch to it
+      (switch-to-buffer (car all-buffers))
+      t)
+     (t
+      ;; Multiple buffers, let user choose
+      (let ((selected-buffer (claude-code--select-buffer-from-choices
+                              "Select Claude instance: "
+                              all-buffers)))
+        (when selected-buffer
+          (switch-to-buffer selected-buffer)
+          t))))))
+
 (defun claude-code-switch-to-buffer (&optional arg)
   "Switch to the Claude buffer if it exists.
 
@@ -981,24 +1005,20 @@ With prefix ARG, show all Claude instances across all directories."
   (interactive "P")
   (if arg
       ;; With prefix arg, show all Claude instances
-      (let ((all-buffers (claude-code--find-all-claude-buffers)))
-        (cond
-         ((null all-buffers)
-          (claude-code--show-not-running-message))
-         ((= (length all-buffers) 1)
-          ;; Only one buffer, just switch to it
-          (switch-to-buffer (car all-buffers)))
-         (t
-          ;; Multiple buffers, let user choose
-          (let ((selected-buffer (claude-code--select-buffer-from-choices
-                                  "Select Claude instance: "
-                                  all-buffers)))
-            (when selected-buffer
-              (switch-to-buffer selected-buffer))))))
+      (claude-code--switch-to-all-instances-helper)
     ;; Without prefix arg, use normal behavior
     (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
         (switch-to-buffer claude-code-buffer)
       (claude-code--show-not-running-message))))
+
+;;;###autoload
+(defun claude-code-select-buffer ()
+  "Select and switch to a Claude buffer from all running instances.
+
+This command shows all Claude instances across all projects and
+directories, allowing you to choose which one to switch to."
+  (interactive)
+  (claude-code--switch-to-all-instances-helper))
 
 ;;;###autoload
 (defun claude-code-kill (&optional arg)
