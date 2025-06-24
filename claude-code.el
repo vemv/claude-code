@@ -614,19 +614,14 @@ ARGS is passed to ORIG-FUN unchanged."
           ;; changed event to the Claude process.
           (if width-changed result nil)))))
 
-(defun claude-code (&optional arg)
-  "Start Claude in an eat terminal and enable `claude-code-mode'.
+(defun claude-code--start (arg extra-switches)
+  "Start Claude with given command-line EXTRA-SWITCHES.
 
-If current buffer belongs to a project start Claude in the project's
-root directory. Otherwise start in the directory of the current buffer
-file, or the current value of `default-directory' if no project and no
-buffer file.
+ARG is the prefix argument controlling directory and buffer switching.
+EXTRA-SWITCHES is a list of additional command-line switches to pass to Claude.
 
 With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
-  (interactive "P")
-
-  ;; Forward declare variables to avoid compilation warnings
   (require 'eat)
 
   (let* ((dir (if (equal arg '(16))  ; Double prefix
@@ -664,7 +659,9 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
          (buffer-name (claude-code--buffer-name instance-name))
          (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
          (buffer (get-buffer-create buffer-name))
-         (program-switches claude-code-program-switches))
+         (program-switches (if extra-switches
+                               (append claude-code-program-switches extra-switches)
+                             claude-code-program-switches)))
     ;; Start the eat process
     (with-current-buffer buffer
       (cd dir)
@@ -717,6 +714,19 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (display-buffer buffer))
     (when switch-after
       (switch-to-buffer buffer))))
+
+(defun claude-code (&optional arg)
+  "Start Claude in an eat terminal and enable `claude-code-mode'.
+
+If current buffer belongs to a project start Claude in the project's
+root directory. Otherwise start in the directory of the current buffer
+file, or the current value of `default-directory' if no project and no
+buffer file.
+
+With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
+With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
+  (interactive "P")
+  (claude-code--start arg nil))
 
 ;;;###autoload
 (defun claude-code-start-in-directory (&optional arg)
@@ -749,98 +759,7 @@ buffer file.
 With prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
   (interactive "P")
-
-  ;; Forward declare variables to avoid compilation warnings
-  (require 'eat)
-
-  (let* ((dir (if (equal arg '(16))  ; Double prefix
-                  (read-directory-name "Project directory: ")
-                (claude-code--directory)))
-         (abbreviated-dir (abbreviate-file-name dir))
-         (switch-after (equal arg '(4))) ; Single prefix
-         (default-directory dir)
-         ;; Check for existing Claude instances in this directory
-         (existing-buffers (claude-code--find-claude-buffers-for-directory dir))
-         ;; Determine instance name
-         (existing-instance-names (mapcar (lambda (buf)
-                                            (or (claude-code--extract-instance-name-from-buffer-name
-                                                 (buffer-name buf))
-                                                "default"))
-                                          existing-buffers))
-         (instance-name (if existing-buffers
-                            (let ((proposed-name ""))
-                              (while (or (string-empty-p proposed-name)
-                                         (member proposed-name existing-instance-names))
-                                (setq proposed-name
-                                      (read-string (format "Instances already running for %s (existing: %s), new instance name: "
-                                                           abbreviated-dir
-                                                           (mapconcat #'identity existing-instance-names ", "))
-                                                   nil nil proposed-name))
-                                (cond
-                                 ((string-empty-p proposed-name)
-                                  (message "Instance name cannot be empty. Please enter a name.")
-                                  (sit-for 1))
-                                 ((member proposed-name existing-instance-names)
-                                  (message "Instance name '%s' already exists. Please choose a different name." proposed-name)
-                                  (sit-for 1))))
-                              proposed-name)
-                          "default"))
-         (buffer-name (claude-code--buffer-name instance-name))
-         (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
-         (buffer (get-buffer-create buffer-name))
-         (program-switches (append claude-code-program-switches '("--continue"))))
-    ;; Start the eat process
-    (with-current-buffer buffer
-      (cd dir)
-      (setq-local eat-term-name claude-code-term-name)
-
-      ;; Turn off shell integration, as we don't need it for Claude
-      (setq-local eat-enable-directory-tracking t
-                  eat-enable-shell-command-history nil
-                  eat-enable-shell-prompt-annotation nil)
-      
-      ;; Conditionally disable scrollback truncation
-      (when claude-code-never-truncate-claude-buffer
-        (setq-local eat-term-scrollback-size nil))
-
-      (let ((process-adaptive-read-buffering nil))
-        (condition-case nil
-            (apply #'eat-make trimmed-buffer-name claude-code-program nil program-switches)
-          (error
-           (error "error starting claude")
-           (signal 'claude-start-error "error starting claude"))))
-
-      ;; Setup our custom key bindings
-      (claude-code--setup-claude-buffer-keymap)
-
-      ;; Set eat repl faces to inherit from claude-code-repl-face
-      (claude-code--setup-repl-faces)
-
-      ;; Add advice to only nottify claude on window width changes, to avoid uncessary flickering
-      (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice)
-
-      ;; Set our custom synchronize scroll function
-      (setq-local eat--synchronize-scroll-function #'claude-code--synchronize-scroll)
-
-      ;; Add window configuration change hook to keep buffer scrolled to bottom
-      (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
-
-      ;; Add notification handler if notifications are enabledd
-      (when claude-code-enable-notifications
-        ;; (setq-local eat--bell #'claude-code--notify)
-        (setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify))
-
-      ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
-      (sleep-for claude-code-startup-delay)
-
-      ;; Add cleanup hook to remove directory mappings when buffer is killed
-      (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)
-
-      ;; run start hooks and show the claude buffer
-      (run-hooks 'claude-code-start-hook)
-      (display-buffer buffer))
-    (when switch-after
-      (switch-to-buffer buffer))))
+  (claude-code--start arg '("--continue")))
 
 ;;;###autoload
 (defun claude-code-resume (&optional session-id arg)
@@ -866,99 +785,10 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
     (setq arg session-id
           session-id nil))
 
-  ;; Forward declare variables to avoid compilation warnings
-  (require 'eat)
-
-  (let* ((dir (if (equal arg '(16))  ; Double prefix
-                  (read-directory-name "Project directory: ")
-                (claude-code--directory)))
-         (abbreviated-dir (abbreviate-file-name dir))
-         (switch-after (equal arg '(4))) ; Single prefix
-         (default-directory dir)
-         ;; Check for existing Claude instances in this directory
-         (existing-buffers (claude-code--find-claude-buffers-for-directory dir))
-         ;; Determine instance name
-         (existing-instance-names (mapcar (lambda (buf)
-                                            (or (claude-code--extract-instance-name-from-buffer-name
-                                                 (buffer-name buf))
-                                                "default"))
-                                          existing-buffers))
-         (instance-name (if existing-buffers
-                            (let ((proposed-name ""))
-                              (while (or (string-empty-p proposed-name)
-                                         (member proposed-name existing-instance-names))
-                                (setq proposed-name
-                                      (read-string (format "Instances already running for %s (existing: %s), new instance name: "
-                                                           abbreviated-dir
-                                                           (mapconcat #'identity existing-instance-names ", "))
-                                                   nil nil proposed-name))
-                                (cond
-                                 ((string-empty-p proposed-name)
-                                  (message "Instance name cannot be empty. Please enter a name.")
-                                  (sit-for 1))
-                                 ((member proposed-name existing-instance-names)
-                                  (message "Instance name '%s' already exists. Please choose a different name." proposed-name)
-                                  (sit-for 1))))
-                              proposed-name)
-                          "default"))
-         (buffer-name (claude-code--buffer-name instance-name))
-         (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
-         (buffer (get-buffer-create buffer-name))
-         (program-switches (if session-id
-                               (append claude-code-program-switches (list "--resume" session-id))
-                             (append claude-code-program-switches '("--resume")))))
-    ;; Start the eat process
-    (with-current-buffer buffer
-      (cd dir)
-      (setq-local eat-term-name claude-code-term-name)
-
-      ;; Turn off shell integration, as we don't need it for Claude
-      (setq-local eat-enable-directory-tracking t
-                  eat-enable-shell-command-history nil
-                  eat-enable-shell-prompt-annotation nil)
-      
-      ;; Conditionally disable scrollback truncation
-      (when claude-code-never-truncate-claude-buffer
-        (setq-local eat-term-scrollback-size nil))
-
-      (let ((process-adaptive-read-buffering nil))
-        (condition-case nil
-            (apply #'eat-make trimmed-buffer-name claude-code-program nil program-switches)
-          (error
-           (error "error starting claude")
-           (signal 'claude-start-error "error starting claude"))))
-
-      ;; Setup our custom key bindings
-      (claude-code--setup-claude-buffer-keymap)
-
-      ;; Set eat repl faces to inherit from claude-code-repl-face
-      (claude-code--setup-repl-faces)
-
-      ;; Add advice to only nottify claude on window width changes, to avoid uncessary flickering
-      (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice)
-
-      ;; Set our custom synchronize scroll function
-      (setq-local eat--synchronize-scroll-function #'claude-code--synchronize-scroll)
-
-      ;; Add window configuration change hook to keep buffer scrolled to bottom
-      (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
-
-      ;; Add notification handler if notifications are enabledd
-      (when claude-code-enable-notifications
-        ;; (setq-local eat--bell #'claude-code--notify)
-        (setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify))
-
-      ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
-      (sleep-for claude-code-startup-delay)
-
-      ;; Add cleanup hook to remove directory mappings when buffer is killed
-      (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)
-
-      ;; run start hooks and show the claude buffer
-      (run-hooks 'claude-code-start-hook)
-      (display-buffer buffer))
-    (when switch-after
-      (switch-to-buffer buffer))))
+  (let ((extra-switches (if session-id
+                            (list "--resume" session-id)
+                          '("--resume"))))
+    (claude-code--start arg extra-switches)))
 
 (defun claude-code--format-errors-at-point ()
   "Format errors at point as a string with file and line numbers.
