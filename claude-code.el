@@ -37,6 +37,12 @@
 (declare-function eat-semi-char-mode "eat" ())
 (declare-function eat--adjust-process-window-size "eat" (&rest args))
 
+;; Declare external variables and functions from vterm package
+(defvar vterm-buffer-name)
+(defvar vterm-shell)
+(defvar vterm-environment)
+(declare-function vterm "vterm" (&optional buffer-name))
+
 ;;;; Customization optionsy
 (defgroup claude-code nil
   "Claude AI interface for Emacs."
@@ -431,13 +437,21 @@ Returns the buffer containing the terminal.")
     (unless (require 'eat nil t)
       (error "The eat package is required for eat terminal backend. Please install it"))))
 
+;; Helper to ensure vterm is loaded
+(defun claude-code--ensure-vterm ()
+  "Ensure vterm package is loaded."
+  (unless (featurep 'vterm)
+    (unless (require 'vterm nil t)
+      (error "The vterm package is required for vterm terminal backend. Please install it"))))
+
 ;; Core terminal operations
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal."
   (claude-code--ensure-eat)
-  (let* ((process-environment (append (nconc (list "TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true")) process-environment))
-         (result (apply #'eat-make buffer-name program nil switches)))
-    result))
+  ;; (let* ((process-environment (append (nconc (list "TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true")) process-environment))
+  ;;        (result (apply #'eat-make buffer-name program nil switches)))
+  ;;   result)
+  (apply #'eat-make buffer-name program nil switches))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql eat)) terminal string)
   "Send STRING to eat TERMINAL."
@@ -536,9 +550,18 @@ Returns the buffer containing the terminal.")
 
 ;; Core terminal operations
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
-  "Create a vterm terminal (stub implementation)."
-  (message "vterm backend not yet implemented")
-  nil)
+  "Create a vterm terminal."
+  (let* ((vterm-buffer-name (concat "*" buffer-name "*"))
+         (vterm-shell (if switches
+                          (concat program " " (mapconcat #'identity switches " "))
+                        program))
+         (vterm-environment (append
+                             (list
+                              "TERM_PROGRAM=emacs"
+                              "FORCE_CODE_TERMINAL=true")
+                             vterm-environment)))
+    (vterm))
+  (claude-code--ensure-vterm))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql vterm)) terminal string)
   "Send STRING to vterm TERMINAL (stub implementation)."
@@ -555,10 +578,12 @@ Returns the buffer containing the terminal.")
 ;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
   "Switch vterm terminal to read-only mode (stub implementation)."
+  (claude-code--ensure-vterm)
   (message "vterm read-only-mode not yet implemented"))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql vterm)))
   "Switch vterm terminal to interactive mode (stub implementation)."
+  (claude-code--ensure-vterm)
   (message "vterm interactive-mode not yet implemented"))
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql vterm)))
@@ -944,7 +969,6 @@ If FORCE-PROMPT is non-nil, always prompt for instance name.
 
 With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
-  (require 'eat)                        ; [TODO] require in eat method
   (let* ((dir (if (equal arg '(16))  ; Double prefix
                   (read-directory-name "Project directory: ")
                 (claude-code--directory)))
@@ -970,12 +994,22 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
     (with-current-buffer buffer
       (cd dir)
       
-      (let ((process-adaptive-read-buffering nil))
+      (let ((process-adaptive-read-buffering nil)
+            (term-buffer nil))
         (condition-case nil
-            (claude-code--term-make claude-code--terminal-backend trimmed-buffer-name claude-code-program program-switches)
+            (setq term-buffer (claude-code--term-make claude-code--terminal-backend trimmed-buffer-name claude-code-program program-switches))
           (error
            (error "error starting claude")
-           (signal 'claude-start-error "error starting claude"))))
+           (signal 'claude-start-error "error starting claude")))
+      
+        ;; Switch to the terminal buffer before configuring
+        (when term-buffer
+          ;; If eat created a different buffer, kill the original empty one
+          (unless (eq buffer term-buffer)
+            (kill-buffer buffer))
+          (set-buffer term-buffer)
+          ;; Update our buffer reference to the actual terminal buffer
+          (setq buffer term-buffer)))
       
       ;; Configure terminal with backend-specific settings
       (claude-code--term-configure claude-code--terminal-backend)
@@ -1007,7 +1041,10 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
       ;; run start hooks and show the claude buffer
       (run-hooks 'claude-code-start-hook)
-      (display-buffer buffer))
+      (display-buffer buffer)
+      
+      ;; Make sure we're still in the terminal buffer at the end
+      (set-buffer buffer))
     (when switch-after
       (switch-to-buffer buffer))))
 
