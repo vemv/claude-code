@@ -255,8 +255,7 @@ for each directory across multiple invocations.")
     ("1" "Send \"1\"" claude-code-send-1)
     ("2" "Send \"2\"" claude-code-send-2)
     ("3" "Send \"3\"" claude-code-send-3)
-    ("TAB" "Cycle Claude mode" claude-code-cycle-mode)]])
-
+    ("TAB" "Cycle Claude mode" claude-code-cycle-mode :transient t)]])
 
 ;;;###autoload (autoload 'claude-code-slash-commands "claude-code" nil t)
 (transient-define-prefix claude-code-slash-commands ()
