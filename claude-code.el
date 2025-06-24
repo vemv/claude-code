@@ -366,7 +366,7 @@ for each directory across multiple invocations.")
   "Current terminal backend.
 Supported values are \\='eat and \\='vterm.")
 
-;;; Generic function definitions
+;;;;; Generic function definitions
 
 ;; Core terminal operations
 (cl-defgeneric claude-code--term-make (backend buffer-name program &optional switches)
@@ -422,7 +422,7 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-customize-faces (backend)
   "Apply face customizations for the terminal using BACKEND.")
 
-;;; eat backend implementations
+;;;;; eat backend implementations
 
 ;; Helper to ensure eat is loaded
 (defun claude-code--ensure-eat ()
@@ -530,7 +530,7 @@ Returns the buffer containing the terminal.")
           (claude-face (intern (format "claude-code-term-font-%d-face" i))))
       (face-remap-add-relative eat-face claude-face))))
 
-;;; vterm backend implementations (stubs)
+;;;;; vterm backend implementations (stubs)
 
 ;; Core terminal operations
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
