@@ -214,6 +214,7 @@ for each directory across multiple invocations.")
     (define-key map "c" 'claude-code)
     (define-key map "C" 'claude-code-continue)
     (define-key map "R" 'claude-code-resume)
+    (define-key map "d" 'claude-code-start-in-directory)
     (define-key map "e" 'claude-code-fix-error-at-point)
     (define-key map "k" 'claude-code-kill)
     (define-key map "m" 'claude-code-transient)
@@ -240,6 +241,7 @@ for each directory across multiple invocations.")
    ["Manage Claude" ("c" "Start Claude" claude-code)
     ("C" "Continue conversation" claude-code-continue)
     ("R" "Resume session" claude-code-resume)
+    ("d" "Start in directory" claude-code-start-in-directory)
     ("t" "Toggle claude window" claude-code-toggle)
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
     ("k" "Kill Claude" claude-code-kill)
@@ -715,6 +717,22 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (display-buffer buffer))
     (when switch-after
       (switch-to-buffer buffer))))
+
+;;;###autoload
+(defun claude-code-start-in-directory (&optional arg)
+  "Prompt for a directory and start Claude there.
+
+This is a convenience command equivalent to using `claude-code` with
+double prefix arg (\\[universal-argument] \\[universal-argument]).
+
+With prefix ARG (\\[universal-argument]), switch to buffer after creating."
+  (interactive "P")
+  ;; Always prompt for directory (like double prefix)
+  ;; If user gave us a prefix arg, also switch to buffer after creating
+  (let ((dir (read-directory-name "Project directory: ")))
+    ;; We need to temporarily override claude-code--directory to return our chosen dir
+    (cl-letf (((symbol-function 'claude-code--directory) (lambda () dir)))
+      (claude-code (when arg '(4))))))
 
 ;;;###autoload
 (defun claude-code-continue (&optional arg)

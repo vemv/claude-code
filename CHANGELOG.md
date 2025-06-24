@@ -24,6 +24,10 @@ All notable changes to claude-code.el will be documented in this file.
   - Allows resuming any past session from an interactive list
   - Can programmatically resume a specific session by ID
   - Supports same prefix arguments as `claude-code` command
+- New `claude-code-start-in-directory` command for convenience
+  - Bound to `C-c c d` in the command map
+  - Always prompts for directory (equivalent to `C-u C-u claude-code`)
+  - With prefix arg, switches to buffer after creating
 
 ### Changed
 
