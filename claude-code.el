@@ -28,7 +28,7 @@
 (declare-function eat-term-display-beginning "eat" (terminal))
 (declare-function eat-term-live-p "eat" (terminal))
 
-;;;; Customization options
+;;;; Customization optionsy
 (defgroup claude-code nil
   "Claude AI interface for Emacs."
   :group 'tools)
@@ -1056,6 +1056,14 @@ TERMINAL is the eat terminal parameter (not used)."
              "Claude Ready"
              "Waiting for your response")))
 
+(defun claude-code--get-cursor-position ()
+  "Get the cursor position in Claude Code's input box."
+  (save-excursion
+    (goto-char (point-max))
+    (let ((match (re-search-backward "[^[:space:]][[:space:]]+│$" nil t)))
+      (when match
+        (+ match 1)))))
+
 ;;;; Interactive Commands
 
 ;;;###autoload
@@ -1305,10 +1313,16 @@ enter Claude commands.
 Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (interactive)
   (claude-code--with-buffer
-    (eat-emacs-mode)
-    (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
-    (eat--set-cursor nil :invisible)
-    (message "Claude read-only mode enabled")))
+   (eat-emacs-mode)
+   (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
+
+   ;; avoid double-cursor effect
+   (eat--set-cursor nil :invisible)
+
+   (let ((cursor-pos (claude-code--get-cursor-position)))
+     (when cursor-pos
+       (goto-char cursor-pos)))
+   (message "Claude read-only mode enabled")))
 
 ;;;###autoload
 (defun claude-code-exit-read-only-mode ()
