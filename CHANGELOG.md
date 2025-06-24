@@ -32,6 +32,10 @@ All notable changes to claude-code.el will be documented in this file.
   - Bound to `C-c c i` in the command map
   - Always prompts for instance name (unlike `claude-code` which uses "default" for the first instance)
   - Supports same prefix arguments as `claude-code` command
+- New `claude-code-select-buffer` command to select from all Claude instances
+  - Bound to `C-c c B` in the command map
+  - Shows all Claude instances across all projects and directories
+  - Provides a dedicated command for global instance selection (similar to `C-u claude-code-switch-to-buffer`)
 
 ### Changed
 
