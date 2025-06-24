@@ -2,7 +2,7 @@
 
 ;; Author: Stephen Molitor <stevemolitor@gmail.com>
 ;; Version: 0.2.0
-;; Package-Requires: ((emacs "30.0") (transient "0.7.5") (eat "0.9.2"))
+;; Package-Requires: ((emacs "30.0") (transient "0.7.5"))
 ;; Keywords: tools, ai
 ;; URL: https://github.com/stevemolitor/claude-code.el
 
@@ -16,12 +16,16 @@
 (require 'transient)
 (require 'project)
 (require 'cl-lib)
-(eval-when-compile (require 'eat nil t))
 
 ;; Declare external variables and functions from eat package
 (defvar eat--semi-char-mode)
 (defvar eat-terminal)
 (defvar eat--synchronize-scroll-function)
+(defvar eat-term-name)
+(defvar eat-invisible-cursor-type)
+(declare-function eat-make "eat" (name program &optional startfile &rest switches))
+(declare-function eat-term-send-string "eat" (terminal string))
+(declare-function eat-kill-process "eat" (&optional buffer))
 (declare-function eat-term-reset "eat" (terminal))
 (declare-function eat-term-redisplay "eat" (terminal))
 (declare-function eat--set-cursor "eat" (terminal &rest args))
@@ -29,6 +33,9 @@
 (declare-function eat-term-display-beginning "eat" (terminal))
 (declare-function eat-term-live-p "eat" (terminal))
 (declare-function eat-term-parameter "eat" (terminal parameter) t)
+(declare-function eat-emacs-mode "eat" ())
+(declare-function eat-semi-char-mode "eat" ())
+(declare-function eat--adjust-process-window-size "eat" (&rest args))
 
 ;;;; Customization optionsy
 (defgroup claude-code nil
@@ -417,9 +424,17 @@ Returns the buffer containing the terminal.")
 
 ;;; eat backend implementations
 
+;; Helper to ensure eat is loaded
+(defun claude-code--ensure-eat ()
+  "Ensure eat package is loaded."
+  (unless (featurep 'eat)
+    (unless (require 'eat nil t)
+      (error "The eat package is required for eat terminal backend. Please install it"))))
+
 ;; Core terminal operations
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal."
+  (claude-code--ensure-eat)
   (apply #'eat-make buffer-name program nil switches))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql eat)) terminal string)
@@ -438,10 +453,12 @@ Returns the buffer containing the terminal.")
 ;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql eat)))
   "Switch eat terminal to read-only mode."
+  (claude-code--ensure-eat)
   (eat-emacs-mode))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql eat)))
   "Switch eat terminal to interactive mode."
+  (claude-code--ensure-eat)
   (eat-semi-char-mode))
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql eat)))
@@ -477,10 +494,13 @@ Returns the buffer containing the terminal.")
     (setq-local eat-term-scrollback-size nil))
   ;; Set up custom scroll function
   (setq-local eat--synchronize-scroll-function #'claude-code--synchronize-scroll)
-  ;; Configure bell handler
-  (setf (eat-term-parameter eat-terminal 'bell)
-        (lambda (&rest _)
-          (claude-code--notify eat-terminal))))
+  ;; Configure bell handler - ensure eat-terminal exists
+  (when (bound-and-true-p eat-terminal)
+    (setf (eat-term-parameter eat-terminal 'bell)
+          (lambda (&rest _)
+            (claude-code--notify nil))))
+  ;; Add advice to only notify claude on window width changes, to avoid unnecessary flickering
+  (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice))
 
 (cl-defmethod claude-code--term-set-cursor-type ((backend (eql eat)) type)
   "Set eat terminal cursor TYPE."
@@ -967,11 +987,8 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; remove underlines from _>_
       (face-remap-add-relative 'nobreak-space :underline nil)
 
-      ;; set buffer face 
+      ;; set buffer face
       (buffer-face-set :inherit 'claude-code-repl-face)
-
-      ;; Add advice to only nottify claude on window width changes, to avoid uncessary flickering
-      (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice)
 
       ;; Scroll synchronization is now handled in claude-code--term-configure
 
