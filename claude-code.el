@@ -41,7 +41,10 @@
 (defvar vterm-buffer-name)
 (defvar vterm-shell)
 (defvar vterm-environment)
+(defvar vterm-copy-mode)
 (declare-function vterm "vterm" (&optional buffer-name))
+(declare-function vterm-copy-mode "vterm" (&optional arg))
+(declare-function vterm-send-string "vterm" (string &optional paste-p))
 
 ;;;; Customization optionsy
 (defgroup claude-code nil
@@ -398,20 +401,8 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-in-read-only-p (backend)
   "Check if current terminal is in read-only mode using BACKEND.")
 
-(cl-defgeneric claude-code--term-cursor-position (backend)
-  "Get current cursor position in terminal using BACKEND.")
-
-(cl-defgeneric claude-code--term-display-beginning (backend)
-  "Get beginning of terminal display using BACKEND.")
-
 (cl-defgeneric claude-code--term-configure (backend)
   "Configure terminal in current buffer with BACKEND-specific settings.")
-
-(cl-defgeneric claude-code--term-set-cursor-type (backend type)
-  "Set terminal cursor TYPE using BACKEND.")
-
-(cl-defgeneric claude-code--term-set-invisible-cursor-type (backend type)
-  "Set terminal invisible cursor TYPE for read-only mode using BACKEND.")
 
 (cl-defgeneric claude-code--term-get-terminal (backend)
   "Get the terminal object for the current buffer using BACKEND.")
@@ -421,12 +412,6 @@ Returns the buffer containing the terminal.")
 
 (cl-defgeneric claude-code--term-setup-keymap (backend)
   "Set up the local keymap for Claude Code buffers using BACKEND.")
-
-(cl-defgeneric claude-code--term-synchronize-scroll (backend windows)
-  "Synchronize scrolling and point between terminal and WINDOWS using BACKEND.
-
-WINDOWS is a list of windows.  WINDOWS may also contain the special
-symbol `buffer', in which case the point of current buffer is set.")
 
 (cl-defgeneric claude-code--term-cleanup (backend)
   "Perform backend-specific cleanup using BACKEND.")
@@ -439,13 +424,6 @@ symbol `buffer', in which case the point of current buffer is set.")
   (unless (featurep 'eat)
     (unless (require 'eat nil t)
       (error "The eat package is required for eat terminal backend. Please install it"))))
-
-;; Helper to ensure vterm is loaded
-(defun claude-code--ensure-vterm ()
-  "Ensure vterm package is loaded."
-  (unless (featurep 'vterm)
-    (unless (require 'vterm nil t)
-      (error "The vterm package is required for vterm terminal backend. Please install it"))))
 
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal."
@@ -466,25 +444,51 @@ symbol `buffer', in which case the point of current buffer is set.")
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql eat)))
   "Switch eat terminal to read-only mode."
   (claude-code--ensure-eat)
-  (eat-emacs-mode))
+  (eat-emacs-mode)
+  (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
+  (eat--set-cursor nil :invisible))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql eat)))
   "Switch eat terminal to interactive mode."
   (claude-code--ensure-eat)
-  (eat-semi-char-mode))
+  (eat-semi-char-mode)
+  (setq-local eat-invisible-cursor-type nil)
+  (eat--set-cursor nil :invisible))
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql eat)))
   "Check if eat terminal is in read-only mode."
   (not eat--semi-char-mode))
 
-;; Display operations
-(cl-defmethod claude-code--term-cursor-position ((backend (eql eat)))
-  "Get current cursor position in eat terminal."
-  (eat-term-display-cursor eat-terminal))
+(defun claude-code--eat-synchronize-scroll (windows)
+  "Synchronize scrolling and point between terminal and WINDOWS for eat backend.
 
-(cl-defmethod claude-code--term-display-beginning ((backend (eql eat)))
-  "Get beginning of eat terminal display."
-  (eat-term-display-beginning eat-terminal))
+WINDOWS is a list of windows.  WINDOWS may also contain the special
+symbol `buffer', in which case the point of current buffer is set.
+
+This custom version keeps the prompt at the bottom of the window when
+possible, preventing the scrolling up issue when editing other buffers."
+  (dolist (window windows)
+    (if (eq window 'buffer)
+        (goto-char (eat-term-display-cursor eat-terminal))
+      ;; Instead of always setting window-start to the beginning,
+      ;; keep the prompt at the bottom of the window when possible.
+      ;; Don't move the cursor around though when in eat-emacs-mode
+      (when (not buffer-read-only)
+        (let ((cursor-pos (eat-term-display-cursor eat-terminal))
+              (term-beginning (eat-term-display-beginning eat-terminal)))
+          ;; Set point first
+          (set-window-point window cursor-pos)
+          ;; Check if we should keep the prompt at the bottom
+          (when (and (>= cursor-pos (- (point-max) 2))
+                     (not (pos-visible-in-window-p cursor-pos window)))
+            ;; Recenter with point at bottom of window
+            (with-selected-window window
+              (save-excursion
+                (goto-char cursor-pos)
+                (recenter -1))))
+          ;; Otherwise, only adjust window-start if cursor is not visible
+          (unless (pos-visible-in-window-p cursor-pos window)
+            (set-window-start window term-beginning)))))))
 
 (cl-defmethod claude-code--term-configure ((backend (eql eat)))
   "Configure eat terminal in current buffer."
@@ -496,23 +500,15 @@ symbol `buffer', in which case the point of current buffer is set.")
   (setq-local eat-enable-shell-prompt-annotation nil)
   (when claude-code-never-truncate-claude-buffer
     (setq-local eat-term-scrollback-size nil))
-  ;; Set up custom scroll function with a lambda that calls our backend method
-  (setq-local eat--synchronize-scroll-function 
-              (lambda (windows)
-                (claude-code--term-synchronize-scroll 'eat windows)))
+
+  ;; Set up custom scroll function to stop eat from scrolling to the top
+  (setq-local eat--synchronize-scroll-function #'claude-code--eat-synchronize-scroll)
+  
   ;; Configure bell handler - ensure eat-terminal exists
   (when (bound-and-true-p eat-terminal)
     (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
   ;; Set up eat-specific window width tracking
   (claude-code--setup-eat-window-tracking))
-
-(cl-defmethod claude-code--term-set-cursor-type ((backend (eql eat)) type)
-  "Set eat terminal cursor TYPE."
-  (eat--set-cursor eat-terminal type))
-
-(cl-defmethod claude-code--term-set-invisible-cursor-type ((backend (eql eat)) type)
-  "Set eat terminal invisible cursor TYPE."
-  (setq-local eat-invisible-cursor-type type))
 
 (cl-defmethod claude-code--term-get-terminal ((backend (eql eat)))
   "Get the eat terminal object for the current buffer."
@@ -535,7 +531,7 @@ symbol `buffer', in which case the point of current buffer is set.")
       (face-remap-add-relative eat-face claude-face))))
 
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql eat)))
-  "Set up the local keymap for Claude Code buffers using eat backend."
+  "Set up the local keymap for Claude Code buffers using eat BACKEND."
   (let ((map (make-sparse-keymap)))
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
@@ -611,42 +607,18 @@ ARGS is passed to ORIG-FUN unchanged."
   (when claude-code--eat-window-widths
     (clrhash claude-code--eat-window-widths)))
 
-(cl-defmethod claude-code--term-synchronize-scroll ((backend (eql eat)) windows)
-  "Synchronize scrolling and point between terminal and WINDOWS for eat backend.
-
-WINDOWS is a list of windows.  WINDOWS may also contain the special
-symbol `buffer', in which case the point of current buffer is set.
-
-This custom version keeps the prompt at the bottom of the window when
-possible, preventing the scrolling up issue when editing other buffers."
-  (dolist (window windows)
-    (if (eq window 'buffer)
-        (goto-char (eat-term-display-cursor eat-terminal))
-      ;; Instead of always setting window-start to the beginning,
-      ;; keep the prompt at the bottom of the window when possible.
-      ;; Don't move the cursor around though when in eat-emacs-mode
-      (when (not buffer-read-only)
-        (let ((cursor-pos (eat-term-display-cursor eat-terminal))
-              (term-beginning (eat-term-display-beginning eat-terminal)))
-          ;; Set point first
-          (set-window-point window cursor-pos)
-          ;; Check if we should keep the prompt at the bottom
-          (when (and (>= cursor-pos (- (point-max) 2))
-                     (not (pos-visible-in-window-p cursor-pos window)))
-            ;; Recenter with point at bottom of window
-            (with-selected-window window
-              (save-excursion
-                (goto-char cursor-pos)
-                (recenter -1))))
-          ;; Otherwise, only adjust window-start if cursor is not visible
-          (unless (pos-visible-in-window-p cursor-pos window)
-            (set-window-start window term-beginning)))))))
-
 (cl-defmethod claude-code--term-cleanup ((backend (eql eat)))
   "Perform eat-specific cleanup."
   (claude-code--cleanup-eat-window-tracking))
 
 ;;;;; vterm backend implementations
+
+;; Helper to ensure vterm is loaded
+(defun claude-code--ensure-vterm ()
+  "Ensure vterm package is loaded."
+  (unless (featurep 'vterm)
+    (unless (require 'vterm nil t)
+      (error "The vterm package is required for vterm terminal backend. Please install it"))))
 
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
   "Create a vterm terminal."
@@ -670,13 +642,13 @@ possible, preventing the scrolling up issue when editing other buffers."
     ;; Return the current buffer
     (current-buffer)))
 
-(cl-defmethod claude-code--term-send-string ((backend (eql vterm)) terminal string)
+(cl-defmethod claude-code--term-send-string ((backend (eql vterm)) _terminal string)
   "Send STRING to vterm TERMINAL."
   (vterm-send-string string))
 
 (cl-defmethod claude-code--term-kill-process ((backend (eql vterm)) buffer)
   "Kill the vterm terminal process in BUFFER (stub implementation)."
-  (kill-process (get-buffer-process (current-buffer))))
+  (kill-process (get-buffer-process buffer)))
 
 ;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
@@ -693,14 +665,6 @@ possible, preventing the scrolling up issue when editing other buffers."
   "Check if vterm terminal is in read-only mode (stub implementation)."
   vterm-copy-mode)
 
-(cl-defmethod claude-code--term-cursor-position ((backend (eql vterm)))
-  "Get current cursor position in vterm terminal (stub implementation)."
-  (point))
-
-(cl-defmethod claude-code--term-display-beginning ((backend (eql vterm)))
-  "Get beginning of vterm terminal display (stub implementation)."
-  (point-min))
-
 (cl-defmethod claude-code--term-configure ((backend (eql vterm)))
   "Configure vterm terminal in current buffer."
   (claude-code--ensure-vterm)
@@ -712,27 +676,21 @@ possible, preventing the scrolling up issue when editing other buffers."
   ;; Disable automatic scrolling to bottom on output to prevent flickering
   (setq-local vterm-scroll-to-bottom-on-output nil))
 
-(cl-defmethod claude-code--term-set-cursor-type ((backend (eql vterm)) type)
-  "Set vterm terminal cursor TYPE (stub implementation)."
-  (message "vterm set-cursor-type not yet implemented"))
-
-(cl-defmethod claude-code--term-set-invisible-cursor-type ((backend (eql vterm)) type)
-  "Set vterm terminal invisible cursor TYPE (stub implementation)."
-  (message "vterm set-invisible-cursor-type not yet implemented"))
-
 (cl-defmethod claude-code--term-get-terminal ((backend (eql vterm)))
   "Get the vterm terminal object for the current buffer (stub implementation)."
   nil)
 
 (cl-defmethod claude-code--term-customize-faces ((backend (eql vterm)))
   "Apply face customizations for vterm terminal (stub implementation)."
-  (message "vterm customize-faces not yet implemented"))
+  ;; no faces to customize yet (this could change)
+  )
 
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers using vterm backend (stub)."
-  (message "vterm setup-keymap not yet implemented"))
+  ;; not implemented yet
+  )
 
-(cl-defmethod claude-code--term-synchronize-scroll ((backend (eql vterm)) windows)
+(cl-defmethod claude-code--term-synchronize-scroll ((backend (eql vterm)) _windows)
   "Synchronize scrolling for vterm backend (stub implementation)."
   ;; vterm handles its own scrolling, so this is a no-op
   nil)
@@ -1604,20 +1562,6 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (interactive)
   (claude-code--with-buffer
    (claude-code--term-read-only-mode claude-code-terminal-backend)
-   (claude-code--term-set-invisible-cursor-type claude-code-terminal-backend claude-code-read-only-mode-cursor-type)
-
-   ;; avoid double-cursor effect
-   (claude-code--term-set-cursor-type claude-code-terminal-backend :invisible)
-
-   (let* ((cursor-pos (claude-code--get-cursor-position))
-          (current-pos (point))
-          ;; move backwards to the visible claude cursor, as long as we don't have to move too far
-          (should-move-p (and
-                          (< cursor-pos current-pos) ; cursor-pos is above current-pos
-                          (< (- cursor-pos current-pos) 50) ; distance is less than 200 characters
-                          )))
-     (when should-move-p
-       (goto-char (+ 1 cursor-pos))))
    (message "Claude read-only mode enabled")))
 
 ;;;###autoload
@@ -1626,8 +1570,6 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (interactive)
   (claude-code--with-buffer
     (claude-code--term-interactive-mode claude-code-terminal-backend)
-    (claude-code--term-set-invisible-cursor-type claude-code-terminal-backend nil)
-    (claude-code--term-set-cursor-type claude-code-terminal-backend :invisible)
     (message "Claude read-only disabled")))
 
 ;;;###autoload
