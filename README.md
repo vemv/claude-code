@@ -343,6 +343,18 @@ This [demo](./demo.gif) shows claude-code.el in action, including accessing the 
 
 Check out this [video demo](https://www.youtube.com/watch?v=K8sCVLmFyyU) demonstrating the claude-code.el package. This video was kindly created and shared by a user of the package.
 
+### Terminal Backend
+
+Claude Code uses a terminal emulator backend for the Claude interface. The backend can be configured using the `claude-code-terminal-backend` variable:
+
+```elisp
+;; Configure the terminal backend (default is 'eat)
+;; Currently only 'eat is supported
+(setq claude-code-terminal-backend 'eat)
+```
+
+Currently, only the [eat](https://codeberg.org/akib/emacs-eat) terminal emulator is fully supported. Support for vterm is planned for future versions.
+
 ## Limitations
 
 - `claude-code.el` only supports using [eat](https://codeberg.org/akib/emacs-eat) for the Claude Code terminal window. Eat provides better rendering with less flickering and visual artifacts compared to other terminal emulators like ansi-term and vterm in testing.

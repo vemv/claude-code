@@ -368,9 +368,13 @@ for each directory across multiple invocations.")
 
 (require 'cl-lib)
 
-(defvar claude-code--terminal-backend 'eat
-  "Current terminal backend.
-Supported values are \\='eat and \\='vterm.")
+(defcustom claude-code-terminal-backend 'eat
+  "Terminal backend to use for Claude Code.
+Currently only \\='eat is supported.  \\='vterm support is planned
+for future versions."
+  :type '(radio (const :tag "Eat terminal emulator" eat)
+                (const :tag "Vterm (not yet implemented)" vterm))
+  :group 'claude-code)
 
 ;;;;; Generic function definitions
 
@@ -852,7 +856,7 @@ This function handles the proper cleanup sequence for a Claude buffer:
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
-      (claude-code--term-kill-process claude-code--terminal-backend buffer)
+      (claude-code--term-kill-process claude-code-terminal-backend buffer)
       (kill-buffer buffer))))
 
 (defun claude-code--cleanup-directory-mapping ()
@@ -879,9 +883,9 @@ Returns the selected Claude buffer or nil."
   (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
       (progn
         (with-current-buffer claude-code-buffer
-          (let ((terminal (claude-code--term-get-terminal claude-code--terminal-backend)))
-            (claude-code--term-send-string claude-code--terminal-backend terminal cmd)
-            (claude-code--term-send-string claude-code--terminal-backend terminal (kbd "RET")))
+          (let ((terminal (claude-code--term-get-terminal claude-code-terminal-backend)))
+            (claude-code--term-send-string claude-code-terminal-backend terminal cmd)
+            (claude-code--term-send-string claude-code-terminal-backend terminal (kbd "RET")))
           (display-buffer claude-code-buffer))
         claude-code-buffer)
     (claude-code--show-not-running-message)
@@ -897,13 +901,13 @@ This custom version keeps the prompt at the bottom of the window when
 possible, preventing the scrolling up issue when editing other buffers."
   (dolist (window windows)
     (if (eq window 'buffer)
-        (goto-char (claude-code--term-cursor-position claude-code--terminal-backend))
+        (goto-char (claude-code--term-cursor-position claude-code-terminal-backend))
       ;; Instead of always setting window-start to the beginning,
       ;; keep the prompt at the bottom of the window when possible.
       ;; Don't move the cursor around though when in eat-emacs-mode
       (when (not buffer-read-only)
-        (let ((cursor-pos (claude-code--term-cursor-position claude-code--terminal-backend))
-              (term-beginning (claude-code--term-display-beginning claude-code--terminal-backend)))
+        (let ((cursor-pos (claude-code--term-cursor-position claude-code-terminal-backend))
+              (term-beginning (claude-code--term-display-beginning claude-code-terminal-backend)))
           ;; Set point first
           (set-window-point window cursor-pos)
           ;; Check if we should keep the prompt at the bottom
@@ -940,7 +944,7 @@ window has changed, not when only the height has changed. This prevents
 unnecessary terminal reflows when only vertical space changes.
 
 ARGS is passed to ORIG-FUN unchanged."
-  (when (and eat-terminal (claude-code--term-alive-p claude-code--terminal-backend eat-terminal))
+  (when (and eat-terminal (claude-code--term-alive-p claude-code-terminal-backend eat-terminal))
       ;; Call the original function first
       (let ((result (apply orig-fun args)))
         ;; Check all windows for Claude buffers
@@ -997,7 +1001,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (let ((process-adaptive-read-buffering nil)
             (term-buffer nil))
         (condition-case nil
-            (setq term-buffer (claude-code--term-make claude-code--terminal-backend trimmed-buffer-name claude-code-program program-switches))
+            (setq term-buffer (claude-code--term-make claude-code-terminal-backend trimmed-buffer-name claude-code-program program-switches))
           (error
            (error "error starting claude")
            (signal 'claude-start-error "error starting claude")))
@@ -1012,13 +1016,13 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
           (setq buffer term-buffer)))
       
       ;; Configure terminal with backend-specific settings
-      (claude-code--term-configure claude-code--terminal-backend)
+      (claude-code--term-configure claude-code-terminal-backend)
 
       ;; Setup our custom key bindings
       (claude-code--setup-claude-buffer-keymap)
 
       ;; Customize terminal faces
-      (claude-code--term-customize-faces claude-code--terminal-backend)
+      (claude-code--term-customize-faces claude-code-terminal-backend)
 
       ;; remove underlines from _>_
       (face-remap-add-relative 'nobreak-space :underline nil)
@@ -1032,6 +1036,10 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
 
       ;; Notification handler is now set in claude-code--term-configure
+
+      ;; disable scroll bar, fringes
+      (setq-local vertical-scroll-bar nil)      
+      (setq-local fringe-mode 0) 
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
@@ -1447,21 +1455,21 @@ This is useful for saying \"No\" when Claude asks for confirmation without
 having to switch to the REPL buffer."
   (interactive)
   (claude-code--with-buffer
-   (let ((terminal (claude-code--term-get-terminal claude-code--terminal-backend)))
-     (claude-code--term-send-string claude-code--terminal-backend terminal (kbd "ESC")))))
+   (let ((terminal (claude-code--term-get-terminal claude-code-terminal-backend)))
+     (claude-code--term-send-string claude-code-terminal-backend terminal (kbd "ESC")))))
 
 ;; [TODO] move to private area, extract string send fn (maybe)
 (defun claude-code--send-meta-return ()
   "Send Meta-Return key sequence to the terminal."
   (interactive)
-  (let ((terminal (claude-code--term-get-terminal claude-code--terminal-backend)))
-    (claude-code--term-send-string claude-code--terminal-backend terminal "\e\C-m")))
+  (let ((terminal (claude-code--term-get-terminal claude-code-terminal-backend)))
+    (claude-code--term-send-string claude-code-terminal-backend terminal "\e\C-m")))
 
 (defun claude-code--send-return ()
   "Send Return key to the terminal."
   (interactive)
-  (let ((terminal (claude-code--term-get-terminal claude-code--terminal-backend)))
-    (claude-code--term-send-string claude-code--terminal-backend terminal (kbd "RET"))))
+  (let ((terminal (claude-code--term-get-terminal claude-code-terminal-backend)))
+    (claude-code--term-send-string claude-code-terminal-backend terminal (kbd "RET"))))
 
 ;;;###autoload
 (defun claude-code-cycle-mode ()
@@ -1473,8 +1481,8 @@ Claude uses Shift-Tab to cycle through:
 - Plan mode"
   (interactive)
   (claude-code--with-buffer
-   (let ((terminal (claude-code--term-get-terminal claude-code--terminal-backend)))
-     (claude-code--term-send-string claude-code--terminal-backend terminal "\e[Z"))))
+   (let ((terminal (claude-code--term-get-terminal claude-code-terminal-backend)))
+     (claude-code--term-send-string claude-code-terminal-backend terminal "\e[Z"))))
 
 ;; (define-key key-translation-map (kbd "ESC") "")
 
@@ -1486,8 +1494,8 @@ Sends <escape><escape> to the Claude Code REPL."
   (interactive)
   (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
       (with-current-buffer claude-code-buffer
-        (let ((terminal (claude-code--term-get-terminal claude-code--terminal-backend)))
-          (claude-code--term-send-string claude-code--terminal-backend terminal "")))
+        (let ((terminal (claude-code--term-get-terminal claude-code-terminal-backend)))
+          (claude-code--term-send-string claude-code-terminal-backend terminal "")))
         (display-buffer claude-code-buffer))
     (error "Claude is not running"))
 
@@ -1523,11 +1531,11 @@ enter Claude commands.
 Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (interactive)
   (claude-code--with-buffer
-   (claude-code--term-read-only-mode claude-code--terminal-backend)
-   (claude-code--term-set-invisible-cursor-type claude-code--terminal-backend claude-code-read-only-mode-cursor-type)
+   (claude-code--term-read-only-mode claude-code-terminal-backend)
+   (claude-code--term-set-invisible-cursor-type claude-code-terminal-backend claude-code-read-only-mode-cursor-type)
 
    ;; avoid double-cursor effect
-   (claude-code--term-set-cursor-type claude-code--terminal-backend :invisible)
+   (claude-code--term-set-cursor-type claude-code-terminal-backend :invisible)
 
    (let* ((cursor-pos (claude-code--get-cursor-position))
           (current-pos (point))
@@ -1545,9 +1553,9 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   "Exit read-only mode and return to normal mode (eat semi-char mode)."
   (interactive)
   (claude-code--with-buffer
-    (claude-code--term-interactive-mode claude-code--terminal-backend)
-    (claude-code--term-set-invisible-cursor-type claude-code--terminal-backend nil)
-    (claude-code--term-set-cursor-type claude-code--terminal-backend :invisible)
+    (claude-code--term-interactive-mode claude-code-terminal-backend)
+    (claude-code--term-set-invisible-cursor-type claude-code-terminal-backend nil)
+    (claude-code--term-set-cursor-type claude-code-terminal-backend :invisible)
     (message "Claude semi-char mode enabled")))
 
 ;;;###autoload
@@ -1560,7 +1568,7 @@ buffer. However, you are not allowed to change the buffer contents or
 enter Claude commands."
   (interactive)
   (claude-code--with-buffer
-    (if (not (claude-code--term-in-read-only-p claude-code--terminal-backend))
+    (if (not (claude-code--term-in-read-only-p claude-code-terminal-backend))
         (claude-code-read-only-mode)
       (claude-code-exit-read-only-mode))))
 
