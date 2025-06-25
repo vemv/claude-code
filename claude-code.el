@@ -555,6 +555,8 @@ Returns the buffer containing the terminal.")
 ;; Core terminal operations
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
   "Create a vterm terminal."
+  (claude-code--ensure-vterm)
+  ;; Store the desired buffer name
   (let* ((vterm-buffer-name (concat "*" buffer-name "*"))
          (vterm-shell (if switches
                           (concat program " " (mapconcat #'identity switches " "))
@@ -563,9 +565,15 @@ Returns the buffer containing the terminal.")
                              (list
                               "TERM_PROGRAM=emacs"
                               "FORCE_CODE_TERMINAL=true")
-                             vterm-environment)))
-    (vterm))
-  (claude-code--ensure-vterm))
+                             vterm-environment))
+         ;; Store current buffer name before vterm changes it
+         (original-buffer-name (buffer-name)))
+    ;; Create vterm buffer
+    (vterm)
+    ;; vterm-mode may have changed the buffer name, restore it
+    (rename-buffer original-buffer-name t)
+    ;; Return the current buffer
+    (current-buffer)))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql vterm)) terminal string)
   "Send STRING to vterm TERMINAL."
@@ -613,8 +621,15 @@ Returns the buffer containing the terminal.")
 
 ;; Configuration operations
 (cl-defmethod claude-code--term-configure ((backend (eql vterm)))
-  "Configure vterm terminal in current buffer (stub implementation)."
-  (message "vterm configure not yet implemented"))
+  "Configure vterm terminal in current buffer."
+  (claude-code--ensure-vterm)
+  ;; Prevent vterm from automatically renaming the buffer
+  (setq-local vterm-buffer-name-string nil)
+  ;; Set scrollback size if needed
+  (when claude-code-never-truncate-claude-buffer
+    (setq-local vterm-max-scrollback 1000000))
+  ;; Disable automatic scrolling to bottom on output to prevent flickering
+  (setq-local vterm-scroll-to-bottom-on-output nil))
 
 (cl-defmethod claude-code--term-set-cursor-type ((backend (eql vterm)) type)
   "Set vterm terminal cursor TYPE (stub implementation)."
