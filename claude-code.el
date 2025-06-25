@@ -516,9 +516,7 @@ Returns the buffer containing the terminal.")
   (setq-local eat--synchronize-scroll-function #'claude-code--synchronize-scroll)
   ;; Configure bell handler - ensure eat-terminal exists
   (when (bound-and-true-p eat-terminal)
-    (setf (eat-term-parameter eat-terminal 'bell)
-          (lambda (&rest _)
-            (claude-code--notify nil))))
+    (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
   ;; Add advice to only notify claude on window width changes, to avoid unnecessary flickering
   (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice))
 
