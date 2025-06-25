@@ -6,6 +6,7 @@ All notable changes to claude-code.el will be documented in this file.
 
 ### Added
 
+- vterm supporte
 - New `claude-code-newline-keybinding-style` customization variable to configure how return and modifier keys behave in Claude buffers
   - `'default` (default): M-return inserts newline, RET sends message
   - `'newline-on-return`: RET inserts newline, M-return sends message
