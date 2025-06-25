@@ -452,10 +452,9 @@ Returns the buffer containing the terminal.")
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal."
   (claude-code--ensure-eat)
-  ;; (let* ((process-environment (append (nconc (list "TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true")) process-environment))
-  ;;        (result (apply #'eat-make buffer-name program nil switches)))
-  ;;   result)
-  (apply #'eat-make buffer-name program nil switches))
+
+  (let* ((process-environment (append '("TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true") process-environment)))
+    (apply #'eat-make buffer-name program nil switches)))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql eat)) terminal string)
   "Send STRING to eat TERMINAL."
@@ -505,6 +504,7 @@ Returns the buffer containing the terminal.")
 ;; Configuration operations
 (cl-defmethod claude-code--term-configure ((backend (eql eat)))
   "Configure eat terminal in current buffer."
+  (claude-code--ensure-eat)
   ;; Configure eat-specific settings
   (setq-local eat-term-name "xterm-256color")
   (setq-local eat-enable-directory-tracking nil)
@@ -581,7 +581,7 @@ Returns the buffer containing the terminal.")
 
 (cl-defmethod claude-code--term-kill-process ((backend (eql vterm)) buffer)
   "Kill the vterm terminal process in BUFFER (stub implementation)."
-  (message "vterm kill-process not yet implemented"))
+  (kill-process (get-buffer-process (current-buffer))))
 
 (cl-defmethod claude-code--term-alive-p ((backend (eql vterm)) terminal)
   "Check if vterm TERMINAL is alive (stub implementation)."
@@ -872,7 +872,8 @@ This function handles the proper cleanup sequence for a Claude buffer:
     (with-current-buffer buffer
       (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
       (claude-code--term-kill-process claude-code-terminal-backend buffer)
-      (kill-buffer buffer))))
+      (when (buffer-live-p buffer)      ; [TODO] verify that we really need to do this
+        (kill-buffer)))))
 
 (defun claude-code--cleanup-directory-mapping ()
   "Remove entries from directory-buffer map when this buffer is killed.
@@ -1053,7 +1054,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Notification handler is now set in claude-code--term-configure
 
       ;; disable scroll bar, fringes
-      (setq-local vertical-scroll-bar nil)      
+      (setq-local vertical-scroll-bar nil)
       (setq-local fringe-mode 0) 
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
@@ -1557,7 +1558,7 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
           ;; move backwards to the visible claude cursor, as long as we don't have to move too far
           (should-move-p (and
                           (< cursor-pos current-pos) ; cursor-pos is above current-pos
-                          (< (- cursor-pos current-pos) 200) ; distance is less than 200 characters
+                          (< (- cursor-pos current-pos) 50) ; distance is less than 200 characters
                           )))
      (when should-move-p
        (goto-char (+ 1 cursor-pos))))
