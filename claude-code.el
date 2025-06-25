@@ -568,8 +568,8 @@ Returns the buffer containing the terminal.")
   (claude-code--ensure-vterm))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql vterm)) terminal string)
-  "Send STRING to vterm TERMINAL (stub implementation)."
-  (message "vterm send-string not yet implemented"))
+  "Send STRING to vterm TERMINAL."
+  (vterm-send-string string))
 
 (cl-defmethod claude-code--term-kill-process ((backend (eql vterm)) buffer)
   "Kill the vterm terminal process in BUFFER (stub implementation)."
