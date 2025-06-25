@@ -390,8 +390,6 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-kill-process (backend buffer)
   "Kill the terminal process in BUFFER using BACKEND.")
 
-(cl-defgeneric claude-code--term-alive-p (backend terminal)
-  "Check if TERMINAL is alive using BACKEND.")
 
 ;; Mode operations
 (cl-defgeneric claude-code--term-read-only-mode (backend)
@@ -465,9 +463,6 @@ Returns the buffer containing the terminal.")
   (with-current-buffer buffer
     (eat-kill-process)))
 
-(cl-defmethod claude-code--term-alive-p ((backend (eql eat)) terminal)
-  "Check if eat TERMINAL is alive."
-  (eat-term-live-p terminal))
 
 ;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql eat)))
@@ -517,8 +512,8 @@ Returns the buffer containing the terminal.")
   ;; Configure bell handler - ensure eat-terminal exists
   (when (bound-and-true-p eat-terminal)
     (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
-  ;; Add advice to only notify claude on window width changes, to avoid unnecessary flickering
-  (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-adjust-process-window-size-advice))
+  ;; Set up eat-specific window width tracking
+  (claude-code--setup-eat-window-tracking))
 
 (cl-defmethod claude-code--term-set-cursor-type ((backend (eql eat)) type)
   "Set eat terminal cursor TYPE."
@@ -581,9 +576,6 @@ Returns the buffer containing the terminal.")
   "Kill the vterm terminal process in BUFFER (stub implementation)."
   (kill-process (get-buffer-process (current-buffer))))
 
-(cl-defmethod claude-code--term-alive-p ((backend (eql vterm)) terminal)
-  "Check if vterm TERMINAL is alive (stub implementation)."
-  nil)
 
 ;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
@@ -947,36 +939,31 @@ configuration changes (e.g., when minibuffer opens/closes)."
       (when-let ((windows (get-buffer-window-list claude-buffer nil t)))
         (claude-code--synchronize-scroll windows)))))
 
-(defvar claude-code--window-widths (make-hash-table :test 'eq :weakness 'key)
-  "Hash table mapping windows to their last known widths.")
-
-(defun claude-code--eat-adjust-process-window-size-advice (orig-fun &rest args)
-  "Advice for `eat--adjust-process-window-size' to only signal on width change.
-
-Returns the size returned by ORIG-FUN only when the width of any Claude
-window has changed, not when only the height has changed. This prevents
-unnecessary terminal reflows when only vertical space changes.
-
-ARGS is passed to ORIG-FUN unchanged."
-  (when (and eat-terminal (claude-code--term-alive-p claude-code-terminal-backend eat-terminal))
-      ;; Call the original function first
-      (let ((result (apply orig-fun args)))
-        ;; Check all windows for Claude buffers
-        (let ((width-changed nil))
-          (dolist (window (window-list))
-            (let ((buffer (window-buffer window)))
-              (when (and buffer (claude-code--buffer-p buffer))
-                (let ((current-width (window-width window))
-                      (stored-width (gethash window claude-code--window-widths)))
-                  ;; Check if this is a new window or if width changed
-                  (when (or (not stored-width) (/= current-width stored-width))
-                    (setq width-changed t)
-                    ;; Update stored width
-                    (puthash window current-width claude-code--window-widths))))))
-          ;; Return result only if a Claude window width changed,
-          ;; otherwise nil. Nil means do not send a window size
-          ;; changed event to the Claude process.
-          (if width-changed result nil)))))
+(defun claude-code--setup-eat-window-tracking ()
+  "Set up eat-specific window width tracking."
+  (let ((window-widths (make-hash-table :test 'eq :weakness 'key)))
+    (advice-add 'eat--adjust-process-window-size :around
+                (lambda (orig-fun &rest args)
+                  "Only signal on width change to prevent unnecessary terminal reflows."
+                  (when (and eat-terminal (eat-term-live-p eat-terminal))
+                    ;; Call the original function first
+                    (let ((result (apply orig-fun args)))
+                      ;; Check all windows for Claude buffers
+                      (let ((width-changed nil))
+                        (dolist (window (window-list))
+                          (let ((buffer (window-buffer window)))
+                            (when (and buffer (claude-code--buffer-p buffer))
+                              (let ((current-width (window-width window))
+                                    (stored-width (gethash window window-widths)))
+                                ;; Check if this is a new window or if width changed
+                                (when (or (not stored-width) (/= current-width stored-width))
+                                  (setq width-changed t)
+                                  ;; Update stored width
+                                  (puthash window current-width window-widths))))))
+                        ;; Return result only if a Claude window width changed,
+                        ;; otherwise nil. Nil means do not send a window size
+                        ;; changed event to the Claude process.
+                        (if width-changed result nil))))))))
 
 (defun claude-code--start (arg extra-switches &optional force-prompt)
   "Start Claude with given command-line EXTRA-SWITCHES.
@@ -1053,7 +1040,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
       ;; disable scroll bar, fringes
       (setq-local vertical-scroll-bar nil)
-      (setq-local fringe-mode 0) 
+      (setq-local fringe-mode 0)
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
