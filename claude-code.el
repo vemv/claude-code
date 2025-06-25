@@ -430,6 +430,9 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-customize-faces (backend)
   "Apply face customizations for the terminal using BACKEND.")
 
+(cl-defgeneric claude-code--term-setup-keymap (backend)
+  "Set up the local keymap for Claude Code buffers using BACKEND.")
+
 ;;;;; eat backend implementations
 
 ;; Helper to ensure eat is loaded
@@ -543,6 +546,36 @@ Returns the buffer containing the terminal.")
           (claude-face (intern (format "claude-code-term-font-%d-face" i))))
       (face-remap-add-relative eat-face claude-face))))
 
+(cl-defmethod claude-code--term-setup-keymap ((backend (eql eat)))
+  "Set up the local keymap for Claude Code buffers using eat backend."
+  (let ((map (make-sparse-keymap)))
+    ;; Inherit parent eat keymap
+    (set-keymap-parent map (current-local-map))
+
+    ;; C-g for escape
+    (define-key map (kbd "C-g") "")
+    
+    ;; Configure key bindings based on user preference
+    (pcase claude-code-newline-keybinding-style
+      ('default
+       ;; Default: M-return enters a line break, RET sends the command
+       (define-key map (kbd "<return>") (kbd "RET"))
+       (define-key map (kbd "<M-return>") "\e\C-m"))
+      ('newline-on-return
+       ;; Newline on return: RET enters a line break, M-return sends the command
+       (define-key map (kbd "<return>") "\e\C-m")
+       (define-key map (kbd "<M-return>") (kbd "RET")))
+      ('newline-on-shift-return
+       ;; Shift-return: RET sends the command, S-return enters a line break
+       (define-key map (kbd "<return>") (kbd "RET"))
+       (define-key map (kbd "<S-return>") "\e\C-m"))
+      ('super-return-to-send
+       ;; Super-return: RET enters a line break, s-return sends the command
+       (define-key map (kbd "<return>") "\e\C-m")
+       (define-key map (kbd "<s-return>") (kbd "RET"))))
+
+    (use-local-map map)))
+
 ;;;;; vterm backend implementations (stubs)
 
 ;; Core terminal operations
@@ -581,12 +614,12 @@ Returns the buffer containing the terminal.")
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
   "Switch vterm terminal to read-only mode (stub implementation)."
   (claude-code--ensure-vterm)
-  (message "vterm read-only-mode not yet implemented"))
+  (vterm-copy-mode 1))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql vterm)))
   "Switch vterm terminal to interactive mode (stub implementation)."
   (claude-code--ensure-vterm)
-  (message "vterm interactive-mode not yet implemented"))
+  (vterm-copy-mode -1))
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql vterm)))
   "Check if vterm terminal is in read-only mode (stub implementation)."
@@ -636,6 +669,10 @@ Returns the buffer containing the terminal.")
 (cl-defmethod claude-code--term-customize-faces ((backend (eql vterm)))
   "Apply face customizations for vterm terminal (stub implementation)."
   (message "vterm customize-faces not yet implemented"))
+
+(cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
+  "Set up the local keymap for Claude Code buffers using vterm backend (stub)."
+  (message "vterm setup-keymap not yet implemented"))
 
 ;;;; Private util functions
 (defmacro claude-code--with-buffer (&rest body)
@@ -862,8 +899,9 @@ This function handles the proper cleanup sequence for a Claude buffer:
     (with-current-buffer buffer
       (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
       (claude-code--term-kill-process claude-code-terminal-backend buffer)
-      (when (buffer-live-p buffer)      ; [TODO] verify that we really need to do this
-        (kill-buffer)))))
+      ;; (when (buffer-live-p buffer)      ; [TODO] verify that we really need to do this
+      ;;   (kill-buffer))
+      )))
 
 (defun claude-code--cleanup-directory-mapping ()
   "Remove entries from directory-buffer map when this buffer is killed.
@@ -1206,12 +1244,18 @@ Returns a string with the errors or a message if no errors found."
 
 (defun claude-code--setup-claude-buffer-keymap ()
   "Set up the local keymap for Claude Code buffers."
+  (claude-code--term-setup-keymap claude-code-terminal-backend))
+
+;; Removed old keymap function - now using backend-specific implementation
+
+(defun claude-code--pulse-modeline-removed ()
+  "Set up the local keymap for Claude Code buffers."
   (let ((map (make-sparse-keymap)))
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
 
     ;; C-g for escape
-    (define-key map (kbd "C-g") "")
+    (define-key map (kbd "C-g") "")
     
     ;; Configure key bindings based on user preference
     (pcase claude-code-newline-keybinding-style
@@ -1233,6 +1277,7 @@ Returns a string with the errors or a message if no errors found."
        (define-key map (kbd "<s-return>") (kbd "RET"))))
 
     (use-local-map map)))
+
 
 (defun claude-code--pulse-modeline ()
   "Pulse the modeline to provide visual notification."
