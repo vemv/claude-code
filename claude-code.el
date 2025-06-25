@@ -939,31 +939,51 @@ configuration changes (e.g., when minibuffer opens/closes)."
       (when-let ((windows (get-buffer-window-list claude-buffer nil t)))
         (claude-code--synchronize-scroll windows)))))
 
+(defvar claude-code--eat-window-widths nil
+  "Hash table mapping windows to their last known widths for eat terminals.")
+
+(defun claude-code--eat-window-size-advice (orig-fun &rest args)
+  "Advice for `eat--adjust-process-window-size' to only signal on width change.
+
+Returns the size returned by ORIG-FUN only when the width of any Claude
+window has changed, not when only the height has changed. This prevents
+unnecessary terminal reflows when only vertical space changes.
+
+ARGS is passed to ORIG-FUN unchanged."
+  (when (and eat-terminal (eat-term-live-p eat-terminal))
+    ;; Call the original function first
+    (let ((result (apply orig-fun args)))
+      ;; Check all windows for Claude buffers
+      (let ((width-changed nil))
+        (dolist (window (window-list))
+          (let ((buffer (window-buffer window)))
+            (when (and buffer (claude-code--buffer-p buffer))
+              (let ((current-width (window-width window))
+                    (stored-width (gethash window claude-code--eat-window-widths)))
+                ;; Check if this is a new window or if width changed
+                (when (or (not stored-width) (/= current-width stored-width))
+                  (setq width-changed t)
+                  ;; Update stored width
+                  (puthash window current-width claude-code--eat-window-widths))))))
+        ;; Return result only if a Claude window width changed,
+        ;; otherwise nil. Nil means do not send a window size
+        ;; changed event to the Claude process.
+        (if width-changed result nil)))))
+
 (defun claude-code--setup-eat-window-tracking ()
   "Set up eat-specific window width tracking."
-  (let ((window-widths (make-hash-table :test 'eq :weakness 'key)))
-    (advice-add 'eat--adjust-process-window-size :around
-                (lambda (orig-fun &rest args)
-                  "Only signal on width change to prevent unnecessary terminal reflows."
-                  (when (and eat-terminal (eat-term-live-p eat-terminal))
-                    ;; Call the original function first
-                    (let ((result (apply orig-fun args)))
-                      ;; Check all windows for Claude buffers
-                      (let ((width-changed nil))
-                        (dolist (window (window-list))
-                          (let ((buffer (window-buffer window)))
-                            (when (and buffer (claude-code--buffer-p buffer))
-                              (let ((current-width (window-width window))
-                                    (stored-width (gethash window window-widths)))
-                                ;; Check if this is a new window or if width changed
-                                (when (or (not stored-width) (/= current-width stored-width))
-                                  (setq width-changed t)
-                                  ;; Update stored width
-                                  (puthash window current-width window-widths))))))
-                        ;; Return result only if a Claude window width changed,
-                        ;; otherwise nil. Nil means do not send a window size
-                        ;; changed event to the Claude process.
-                        (if width-changed result nil))))))))
+  ;; Initialize the window widths hash table
+  (setq claude-code--eat-window-widths (make-hash-table :test 'eq :weakness 'key))
+  ;; Add the advice
+  (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-window-size-advice))
+
+(defun claude-code--cleanup-eat-window-tracking ()
+  "Clean up eat-specific window width tracking."
+  ;; Remove the advice
+  (advice-remove 'eat--adjust-process-window-size #'claude-code--eat-window-size-advice)
+  ;; Clear the hash table
+  (when claude-code--eat-window-widths
+    (clrhash claude-code--eat-window-widths)))
 
 (defun claude-code--start (arg extra-switches &optional force-prompt)
   "Start Claude with given command-line EXTRA-SWITCHES.
