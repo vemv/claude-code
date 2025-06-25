@@ -1031,7 +1031,7 @@ If FORCE-PROMPT is non-nil, always prompt for instance name.
 
 With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
-  (let* ((dir (if (equal arg '(16))  ; Double prefix
+  (let* ((dir (if (equal arg '(16))     ; Double prefix
                   (read-directory-name "Project directory: ")
                 (claude-code--directory)))
          (switch-after (equal arg '(4))) ; Single prefix
@@ -1105,12 +1105,23 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Add cleanup hook to remove directory mappings when buffer is killed
       (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)
 
-      ;; run start hooks and show the claude buffer
+      ;; run start hooks 
       (run-hooks 'claude-code-start-hook)
-      (display-buffer buffer)
-      
+
+      ;; Disable vertical scroll bar in claude buffer
+      (setq-local vertical-scroll-bar nil)
+
+      ;; Display buffer. Set window parameters here, as they can get overriden if set earlier when display-buffer is called.
+      ;; Claude provides a litte space on the right but not on the left, so add a 1 column left margin and a 0 right margin.
+      ;; Turn off frignes in the claude buffer.
+      (display-buffer buffer '(window-parameters . ((left-margin-width . 0)
+                                                    (right-margin-width . 0)
+                                                    (left-fringe-width . 0)
+                                                    (right-fringe-width . 0))))
+
       ;; Make sure we're still in the terminal buffer at the end
       (set-buffer buffer))
+    
     (when switch-after
       (switch-to-buffer buffer))))
 
