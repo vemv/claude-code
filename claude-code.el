@@ -378,7 +378,6 @@ for future versions."
 
 ;;;;; Generic function definitions
 
-;; Core terminal operations
 (cl-defgeneric claude-code--term-make (backend buffer-name program &optional switches)
   "Create a terminal using BACKEND in BUFFER-NAME running PROGRAM.
 Optional SWITCHES are command-line arguments to PROGRAM.
@@ -390,8 +389,6 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-kill-process (backend buffer)
   "Kill the terminal process in BUFFER using BACKEND.")
 
-
-;; Mode operations
 (cl-defgeneric claude-code--term-read-only-mode (backend)
   "Switch current terminal to read-only mode using BACKEND.")
 
@@ -401,20 +398,12 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-in-read-only-p (backend)
   "Check if current terminal is in read-only mode using BACKEND.")
 
-;; Display operations
 (cl-defgeneric claude-code--term-cursor-position (backend)
   "Get current cursor position in terminal using BACKEND.")
 
 (cl-defgeneric claude-code--term-display-beginning (backend)
   "Get beginning of terminal display using BACKEND.")
 
-(cl-defgeneric claude-code--term-redisplay (backend)
-  "Redisplay the terminal using BACKEND.")
-
-(cl-defgeneric claude-code--term-reset (backend)
-  "Reset the terminal using BACKEND.")
-
-;; Configuration operations
 (cl-defgeneric claude-code--term-configure (backend)
   "Configure terminal in current buffer with BACKEND-specific settings.")
 
@@ -433,6 +422,15 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-setup-keymap (backend)
   "Set up the local keymap for Claude Code buffers using BACKEND.")
 
+(cl-defgeneric claude-code--term-synchronize-scroll (backend windows)
+  "Synchronize scrolling and point between terminal and WINDOWS using BACKEND.
+
+WINDOWS is a list of windows.  WINDOWS may also contain the special
+symbol `buffer', in which case the point of current buffer is set.")
+
+(cl-defgeneric claude-code--term-cleanup (backend)
+  "Perform backend-specific cleanup using BACKEND.")
+
 ;;;;; eat backend implementations
 
 ;; Helper to ensure eat is loaded
@@ -449,7 +447,6 @@ Returns the buffer containing the terminal.")
     (unless (require 'vterm nil t)
       (error "The vterm package is required for vterm terminal backend. Please install it"))))
 
-;; Core terminal operations
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal."
   (claude-code--ensure-eat)
@@ -466,8 +463,6 @@ Returns the buffer containing the terminal.")
   (with-current-buffer buffer
     (eat-kill-process)))
 
-
-;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql eat)))
   "Switch eat terminal to read-only mode."
   (claude-code--ensure-eat)
@@ -491,15 +486,6 @@ Returns the buffer containing the terminal.")
   "Get beginning of eat terminal display."
   (eat-term-display-beginning eat-terminal))
 
-(cl-defmethod claude-code--term-redisplay ((backend (eql eat)))
-  "Redisplay the eat terminal."
-  (eat-term-redisplay eat-terminal))
-
-(cl-defmethod claude-code--term-reset ((backend (eql eat)))
-  "Reset the eat terminal."
-  (eat-term-reset eat-terminal))
-
-;; Configuration operations
 (cl-defmethod claude-code--term-configure ((backend (eql eat)))
   "Configure eat terminal in current buffer."
   (claude-code--ensure-eat)
@@ -510,8 +496,10 @@ Returns the buffer containing the terminal.")
   (setq-local eat-enable-shell-prompt-annotation nil)
   (when claude-code-never-truncate-claude-buffer
     (setq-local eat-term-scrollback-size nil))
-  ;; Set up custom scroll function
-  (setq-local eat--synchronize-scroll-function #'claude-code--synchronize-scroll)
+  ;; Set up custom scroll function with a lambda that calls our backend method
+  (setq-local eat--synchronize-scroll-function 
+              (lambda (windows)
+                (claude-code--term-synchronize-scroll 'eat windows)))
   ;; Configure bell handler - ensure eat-terminal exists
   (when (bound-and-true-p eat-terminal)
     (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
@@ -576,9 +564,90 @@ Returns the buffer containing the terminal.")
 
     (use-local-map map)))
 
-;;;;; vterm backend implementations (stubs)
+;; Eat-specific window tracking variables and functions
+(defvar claude-code--eat-window-widths nil
+  "Hash table mapping windows to their last known widths for eat terminals.")
 
-;; Core terminal operations
+(defun claude-code--eat-window-size-advice (orig-fun &rest args)
+  "Advice for `eat--adjust-process-window-size' to only signal on width change.
+
+Returns the size returned by ORIG-FUN only when the width of any Claude
+window has changed, not when only the height has changed. This prevents
+unnecessary terminal reflows when only vertical space changes.
+
+ARGS is passed to ORIG-FUN unchanged."
+  (when (and eat-terminal (eat-term-live-p eat-terminal))
+    ;; Call the original function first
+    (let ((result (apply orig-fun args)))
+      ;; Check all windows for Claude buffers
+      (let ((width-changed nil))
+        (dolist (window (window-list))
+          (let ((buffer (window-buffer window)))
+            (when (and buffer (claude-code--buffer-p buffer))
+              (let ((current-width (window-width window))
+                    (stored-width (gethash window claude-code--eat-window-widths)))
+                ;; Check if this is a new window or if width changed
+                (when (or (not stored-width) (/= current-width stored-width))
+                  (setq width-changed t)
+                  ;; Update stored width
+                  (puthash window current-width claude-code--eat-window-widths))))))
+        ;; Return result only if a Claude window width changed,
+        ;; otherwise nil. Nil means do not send a window size
+        ;; changed event to the Claude process.
+        (if width-changed result nil)))))
+
+(defun claude-code--setup-eat-window-tracking ()
+  "Set up eat-specific window width tracking."
+  ;; Initialize the window widths hash table
+  (setq claude-code--eat-window-widths (make-hash-table :test 'eq :weakness 'key))
+  ;; Add the advice
+  (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-window-size-advice))
+
+(defun claude-code--cleanup-eat-window-tracking ()
+  "Clean up eat-specific window width tracking."
+  ;; Remove the advice
+  (advice-remove 'eat--adjust-process-window-size #'claude-code--eat-window-size-advice)
+  ;; Clean the hash table
+  (when claude-code--eat-window-widths
+    (clrhash claude-code--eat-window-widths)))
+
+(cl-defmethod claude-code--term-synchronize-scroll ((backend (eql eat)) windows)
+  "Synchronize scrolling and point between terminal and WINDOWS for eat backend.
+
+WINDOWS is a list of windows.  WINDOWS may also contain the special
+symbol `buffer', in which case the point of current buffer is set.
+
+This custom version keeps the prompt at the bottom of the window when
+possible, preventing the scrolling up issue when editing other buffers."
+  (dolist (window windows)
+    (if (eq window 'buffer)
+        (goto-char (eat-term-display-cursor eat-terminal))
+      ;; Instead of always setting window-start to the beginning,
+      ;; keep the prompt at the bottom of the window when possible.
+      ;; Don't move the cursor around though when in eat-emacs-mode
+      (when (not buffer-read-only)
+        (let ((cursor-pos (eat-term-display-cursor eat-terminal))
+              (term-beginning (eat-term-display-beginning eat-terminal)))
+          ;; Set point first
+          (set-window-point window cursor-pos)
+          ;; Check if we should keep the prompt at the bottom
+          (when (and (>= cursor-pos (- (point-max) 2))
+                     (not (pos-visible-in-window-p cursor-pos window)))
+            ;; Recenter with point at bottom of window
+            (with-selected-window window
+              (save-excursion
+                (goto-char cursor-pos)
+                (recenter -1))))
+          ;; Otherwise, only adjust window-start if cursor is not visible
+          (unless (pos-visible-in-window-p cursor-pos window)
+            (set-window-start window term-beginning)))))))
+
+(cl-defmethod claude-code--term-cleanup ((backend (eql eat)))
+  "Perform eat-specific cleanup."
+  (claude-code--cleanup-eat-window-tracking))
+
+;;;;; vterm backend implementations
+
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
   "Create a vterm terminal."
   (claude-code--ensure-vterm)
@@ -624,7 +693,6 @@ Returns the buffer containing the terminal.")
   "Check if vterm terminal is in read-only mode (stub implementation)."
   vterm-copy-mode)
 
-;; Display operations
 (cl-defmethod claude-code--term-cursor-position ((backend (eql vterm)))
   "Get current cursor position in vterm terminal (stub implementation)."
   (point))
@@ -633,15 +701,6 @@ Returns the buffer containing the terminal.")
   "Get beginning of vterm terminal display (stub implementation)."
   (point-min))
 
-(cl-defmethod claude-code--term-redisplay ((backend (eql vterm)))
-  "Redisplay the vterm terminal (stub implementation)."
-  (message "vterm redisplay not yet implemented"))
-
-(cl-defmethod claude-code--term-reset ((backend (eql vterm)))
-  "Reset the vterm terminal (stub implementation)."
-  (message "vterm reset not yet implemented"))
-
-;; Configuration operations
 (cl-defmethod claude-code--term-configure ((backend (eql vterm)))
   "Configure vterm terminal in current buffer."
   (claude-code--ensure-vterm)
@@ -672,6 +731,16 @@ Returns the buffer containing the terminal.")
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers using vterm backend (stub)."
   (message "vterm setup-keymap not yet implemented"))
+
+(cl-defmethod claude-code--term-synchronize-scroll ((backend (eql vterm)) windows)
+  "Synchronize scrolling for vterm backend (stub implementation)."
+  ;; vterm handles its own scrolling, so this is a no-op
+  nil)
+
+(cl-defmethod claude-code--term-cleanup ((backend (eql vterm)))
+  "Perform vterm-specific cleanup (stub implementation)."
+  ;; No specific cleanup needed for vterm
+  nil)
 
 ;;;; Private util functions
 (defmacro claude-code--with-buffer (&rest body)
@@ -897,6 +966,7 @@ This function handles the proper cleanup sequence for a Claude buffer:
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
+      (claude-code--term-cleanup claude-code-terminal-backend)
       (claude-code--term-kill-process claude-code-terminal-backend buffer)
       ;; (when (buffer-live-p buffer)      ; [TODO] verify that we really need to do this
       ;;   (kill-buffer))
@@ -934,37 +1004,6 @@ Returns the selected Claude buffer or nil."
     (claude-code--show-not-running-message)
     nil))
 
-(defun claude-code--synchronize-scroll (windows)
-  "Synchronize scrolling and point between terminal and WINDOWS.
-
-WINDOWS is a list of windows.  WINDOWS may also contain the special
-symbol `buffer', in which case the point of current buffer is set.
-
-This custom version keeps the prompt at the bottom of the window when
-possible, preventing the scrolling up issue when editing other buffers."
-  (dolist (window windows)
-    (if (eq window 'buffer)
-        (goto-char (claude-code--term-cursor-position claude-code-terminal-backend))
-      ;; Instead of always setting window-start to the beginning,
-      ;; keep the prompt at the bottom of the window when possible.
-      ;; Don't move the cursor around though when in eat-emacs-mode
-      (when (not buffer-read-only)
-        (let ((cursor-pos (claude-code--term-cursor-position claude-code-terminal-backend))
-              (term-beginning (claude-code--term-display-beginning claude-code-terminal-backend)))
-          ;; Set point first
-          (set-window-point window cursor-pos)
-          ;; Check if we should keep the prompt at the bottom
-          (when (and (>= cursor-pos (- (point-max) 2))
-                     (not (pos-visible-in-window-p cursor-pos window)))
-            ;; Recenter with point at bottom of window
-            (with-selected-window window
-              (save-excursion
-                (goto-char cursor-pos)
-                (recenter -1))))
-          ;; Otherwise, only adjust window-start if cursor is not visible
-          (unless (pos-visible-in-window-p cursor-pos window)
-            (set-window-start window term-beginning)))))))
-
 (defun claude-code--on-window-configuration-change ()
   "Handle window configuration change for Claude buffers.
 
@@ -974,53 +1013,7 @@ configuration changes (e.g., when minibuffer opens/closes)."
     (with-current-buffer claude-buffer
       ;; Get all windows showing this Claude buffer
       (when-let ((windows (get-buffer-window-list claude-buffer nil t)))
-        (claude-code--synchronize-scroll windows)))))
-
-(defvar claude-code--eat-window-widths nil
-  "Hash table mapping windows to their last known widths for eat terminals.")
-
-(defun claude-code--eat-window-size-advice (orig-fun &rest args)
-  "Advice for `eat--adjust-process-window-size' to only signal on width change.
-
-Returns the size returned by ORIG-FUN only when the width of any Claude
-window has changed, not when only the height has changed. This prevents
-unnecessary terminal reflows when only vertical space changes.
-
-ARGS is passed to ORIG-FUN unchanged."
-  (when (and eat-terminal (eat-term-live-p eat-terminal))
-    ;; Call the original function first
-    (let ((result (apply orig-fun args)))
-      ;; Check all windows for Claude buffers
-      (let ((width-changed nil))
-        (dolist (window (window-list))
-          (let ((buffer (window-buffer window)))
-            (when (and buffer (claude-code--buffer-p buffer))
-              (let ((current-width (window-width window))
-                    (stored-width (gethash window claude-code--eat-window-widths)))
-                ;; Check if this is a new window or if width changed
-                (when (or (not stored-width) (/= current-width stored-width))
-                  (setq width-changed t)
-                  ;; Update stored width
-                  (puthash window current-width claude-code--eat-window-widths))))))
-        ;; Return result only if a Claude window width changed,
-        ;; otherwise nil. Nil means do not send a window size
-        ;; changed event to the Claude process.
-        (if width-changed result nil)))))
-
-(defun claude-code--setup-eat-window-tracking ()
-  "Set up eat-specific window width tracking."
-  ;; Initialize the window widths hash table
-  (setq claude-code--eat-window-widths (make-hash-table :test 'eq :weakness 'key))
-  ;; Add the advice
-  (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-window-size-advice))
-
-(defun claude-code--cleanup-eat-window-tracking ()
-  "Clean up eat-specific window width tracking."
-  ;; Remove the advice
-  (advice-remove 'eat--adjust-process-window-size #'claude-code--eat-window-size-advice)
-  ;; Clear the hash table
-  (when claude-code--eat-window-widths
-    (clrhash claude-code--eat-window-widths)))
+        (claude-code--term-synchronize-scroll claude-code-terminal-backend windows)))))
 
 (defun claude-code--start (arg extra-switches &optional force-prompt)
   "Start Claude with given command-line EXTRA-SWITCHES.
