@@ -1529,9 +1529,15 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
    ;; avoid double-cursor effect
    (claude-code--term-set-cursor-type claude-code--terminal-backend :invisible)
 
-   (let ((cursor-pos (claude-code--get-cursor-position)))
-     (when cursor-pos
-       (goto-char cursor-pos)))
+   (let* ((cursor-pos (claude-code--get-cursor-position))
+          (current-pos (point))
+          ;; move backwards to the visible claude cursor, as long as we don't have to move too far
+          (should-move-p (and
+                          (< cursor-pos current-pos) ; cursor-pos is above current-pos
+                          (< (- cursor-pos current-pos) 200) ; distance is less than 200 characters
+                          )))
+     (when should-move-p
+       (goto-char (+ 1 cursor-pos))))
    (message "Claude read-only mode enabled")))
 
 ;;;###autoload
