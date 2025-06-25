@@ -609,7 +609,6 @@ Returns the buffer containing the terminal.")
   "Kill the vterm terminal process in BUFFER (stub implementation)."
   (kill-process (get-buffer-process (current-buffer))))
 
-
 ;; Mode operations
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
   "Switch vterm terminal to read-only mode (stub implementation)."
@@ -623,7 +622,7 @@ Returns the buffer containing the terminal.")
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql vterm)))
   "Check if vterm terminal is in read-only mode (stub implementation)."
-  nil)
+  vterm-copy-mode)
 
 ;; Display operations
 (cl-defmethod claude-code--term-cursor-position ((backend (eql vterm)))
@@ -1625,7 +1624,7 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
     (claude-code--term-interactive-mode claude-code-terminal-backend)
     (claude-code--term-set-invisible-cursor-type claude-code-terminal-backend nil)
     (claude-code--term-set-cursor-type claude-code-terminal-backend :invisible)
-    (message "Claude semi-char mode enabled")))
+    (message "Claude read-only disabled")))
 
 ;;;###autoload
 (defun claude-code-toggle-read-only-mode ()
