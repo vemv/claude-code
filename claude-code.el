@@ -426,8 +426,9 @@ PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
   (claude-code--ensure-eat)
 
-  (let* ((process-environment (append '("TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true") process-environment)))
-    (apply #'eat-make buffer-name program nil switches)))
+  (let* ((process-environment (append '("TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true") process-environment))
+         (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*")))
+    (apply #'eat-make trimmed-buffer-name program nil switches)))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql eat)) string)
   "Send STRING to eat terminal.
@@ -654,8 +655,7 @@ PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
   (claude-code--ensure-vterm)
   ;; Store the desired buffer name
-  (let* ((vterm-buffer-name (concat "*" buffer-name "*"))
-         (vterm-shell (if switches
+  (let* ((vterm-shell (if switches
                           (concat program " " (mapconcat #'identity switches " "))
                         program))
          (vterm-environment (append
@@ -1038,19 +1038,20 @@ Returns the selected Claude buffer or nil."
     (claude-code--show-not-running-message)
     nil))
 
-(defun claude-code--start (arg extra-switches &optional force-prompt)
+(defun claude-code--start (arg extra-switches &optional force-prompt force-switch-to-buffer)
   "Start Claude with given command-line EXTRA-SWITCHES.
 
 ARG is the prefix argument controlling directory and buffer switching.
 EXTRA-SWITCHES is a list of additional command-line switches to pass to Claude.
 If FORCE-PROMPT is non-nil, always prompt for instance name.
+If FORCE-SWITCH-TO-BUFFER is non-nil, always switch to the Claude buffer.
 
 With single prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
   (let* ((dir (if (equal arg '(16))     ; Double prefix
                   (read-directory-name "Project directory: ")
                 (claude-code--directory)))
-         (switch-after (equal arg '(4))) ; Single prefix
+         (switch-after (or (equal arg '(4)) force-switch-to-buffer)) ; Single prefix or force-switch-to-buffer
          (default-directory dir)
          ;; Check for existing Claude instances in this directory
          (existing-buffers (claude-code--find-claude-buffers-for-directory dir))
@@ -1063,7 +1064,6 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
          ;; Prompt for instance name (only if instances exist, or force-prompt is true)
          (instance-name (claude-code--prompt-for-instance-name dir existing-instance-names force-prompt))
          (buffer-name (claude-code--buffer-name instance-name))
-         (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*"))
          (buffer (get-buffer-create buffer-name))
          (program-switches (if extra-switches
                                (append claude-code-program-switches extra-switches)
@@ -1075,7 +1075,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (let ((process-adaptive-read-buffering nil)
             (term-buffer nil))
         (condition-case nil
-            (setq term-buffer (claude-code--term-make claude-code-terminal-backend trimmed-buffer-name claude-code-program program-switches))
+            (setq term-buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches))
           (error
            (error "error starting claude")
            (signal 'claude-start-error "error starting claude")))
@@ -1183,30 +1183,20 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 (defun claude-code-resume (&optional session-id arg)
   "Resume a specific Claude session by ID or choose interactively.
 
-This command starts Claude with the --resume flag to resume a
-specific past session. If SESSION-ID is provided, resumes that
-specific session. Otherwise, Claude will present an interactive
-list of past sessions to choose from.
+This command starts Claude with the --resume flag to resume a specific
+past session. Claude will present an interactive list of past sessions
+to choose from.
 
 If current buffer belongs to a project start Claude in the project's
 root directory. Otherwise start in the directory of the current buffer
 file, or the current value of `default-directory' if no project and no
 buffer file.
 
-With prefix ARG (\\[universal-argument]), switch to buffer after creating.
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
   (interactive "P")
 
-  ;; When called interactively, the session-id will be nil and arg will contain prefix arg
-  (when (and (called-interactively-p 'any) session-id)
-    ;; session-id contains the prefix arg when called interactively
-    (setq arg session-id
-          session-id nil))
-
-  (let ((extra-switches (if session-id
-                            (list "--resume" session-id)
-                          '("--resume"))))
-    (claude-code--start arg extra-switches)))
+  (let ((extra-switches '("--resume")))
+    (claude-code--start arg extra-switches nil t)))
 
 ;;;###autoload
 (defun claude-code-new-instance (&optional arg)
