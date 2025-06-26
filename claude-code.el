@@ -665,7 +665,7 @@ SWITCHES are optional command-line arguments for PROGRAM."
     ;; Return the current buffer
     (current-buffer)))
 
-(cl-defmethod claude-code--term-send-string ((backend (eql vterm)) _terminal string)
+(cl-defmethod claude-code--term-send-string ((backend (eql vterm)) string)
   "Send STRING to vterm terminal.
 
 BACKEND is the terminal backend type (should be 'vterm).
