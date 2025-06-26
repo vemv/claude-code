@@ -328,7 +328,7 @@ for each directory across multiple invocations.")
     ("x" "Send command with context" claude-code-send-command-with-context)
     ("r" "Send region or buffer" claude-code-send-region)
     ("e" "Fix error at point" claude-code-fix-error-at-point)
-    ("f" "Fork (jump to previous conversation" claude-code-fork)
+    ("f" "Fork conversation" claude-code-fork)
     ("/" "Slash Commands" claude-code-slash-commands)]
    ["Quick Responses" ("y" "Send <return> (\"Yes\")" claude-code-send-return)
     ("n" "Send <escape> (\"No\")" claude-code-send-escape)
@@ -721,10 +721,45 @@ BACKEND is the terminal backend type (should be 'vterm)."
   ;; no faces to customize yet (this could change)
   )
 
+;; (defun claude-code--vterm-send-key (key &optional meta)
+;;   "Send KEY to vterm")
+
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers.
 
 BACKEND is the terminal backend type (should be 'vterm)."
+  (let ((map (make-sparse-keymap)))
+    ;; Inherit parent eat keymap
+    (set-keymap-parent map (current-local-map))
+
+    ;; C-g for escape
+    ;; (define-key map (kbd "C-g") "")
+    (define-key map (kbd "C-g") (lambda () (interactive) (vterm-send-key "")))
+    ;; (define-key map (kbd "M-<return>") (lambda () (interactive) (vterm-send-key "" nil t)))
+    (define-key map (kbd "<return>") (lambda () (interactive) (vterm-send-key "" nil t)))
+    (define-key map (kbd "s-<return>") (lambda () (interactive) (vterm-send-key "")))
+    
+    ;; Configure key bindings based on user preference
+    ;; (pcase claude-code-newline-keybinding-style
+    ;;   ('default
+    ;;    ;; Default: M-return enters a line break, RET sends the command
+    ;;    (define-key map (kbd "<return>") (kbd "RET"))
+    ;;    (define-key map (kbd "<M-return>") "\e\C-m"))
+    ;;   ('newline-on-return
+    ;;    ;; Newline on return: RET enters a line break, M-return sends the command
+    ;;    (define-key map (kbd "<return>") "\e\C-m")
+    ;;    (define-key map (kbd "<M-return>") (kbd "RET")))
+    ;;   ('newline-on-shift-return
+    ;;    ;; Shift-return: RET sends the command, S-return enters a line break
+    ;;    (define-key map (kbd "<return>") (kbd "RET"))
+    ;;    (define-key map (kbd "<S-return>") "\e\C-m"))
+    ;;   ('super-return-to-send
+    ;;    ;; Super-return: RET enters a line break, s-return sends the command
+    ;;    (define-key map (kbd "<return>") "\e\C-m")
+    ;;    (define-key map (kbd "<s-return>") (kbd "RET"))))
+
+    (use-local-map map))
+  
   ;; not implemented yet
   )
 
