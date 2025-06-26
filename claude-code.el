@@ -721,8 +721,13 @@ BACKEND is the terminal backend type (should be 'vterm)."
   ;; no faces to customize yet (this could change)
   )
 
-;; (defun claude-code--vterm-send-key (key &optional meta)
-;;   "Send KEY to vterm")
+(defun claude-code--vterm-send-alt-return ()
+  (interactive)
+  (vterm-send-key "" nil t))
+
+(defun claude-code--vterm-send-escape ()
+  (interactive)
+  (vterm-send-key ""))
 
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers.
@@ -733,11 +738,13 @@ BACKEND is the terminal backend type (should be 'vterm)."
     (set-keymap-parent map (current-local-map))
 
     ;; C-g for escape
-    ;; (define-key map (kbd "C-g") "")
-    (define-key map (kbd "C-g") (lambda () (interactive) (vterm-send-key "")))
-    ;; (define-key map (kbd "M-<return>") (lambda () (interactive) (vterm-send-key "" nil t)))
-    (define-key map (kbd "<return>") (lambda () (interactive) (vterm-send-key "" nil t)))
-    (define-key map (kbd "s-<return>") (lambda () (interactive) (vterm-send-key "")))
+    (define-key map (kbd "C-g") #'claude-code--vterm-send-escape)
+
+    ;; <alt>-<return> for newline without submitting
+    (define-key map (kbd "M-<return>") #'claude-code--vterm-send-alt-return)
+    
+    ;; (define-key map (kbd "<return>") (lambda () (interactive) (vterm-send-key "" nil t)))
+    ;; (define-key map (kbd "s-<return>") (lambda () (interactive) (vterm-send-key "")))
     
     ;; Configure key bindings based on user preference
     ;; (pcase claude-code-newline-keybinding-style
