@@ -17,93 +17,68 @@
 (require 'project)
 (require 'cl-lib)
 
-;; Declare external variables and functions from eat package
-(defvar eat--semi-char-mode)
-(defvar eat-terminal)
-(defvar eat--synchronize-scroll-function)
-(defvar eat-term-name)
-(defvar eat-invisible-cursor-type)
-(declare-function eat-make "eat" (name program &optional startfile &rest switches))
-(declare-function eat-term-send-string "eat" (terminal string))
-(declare-function eat-kill-process "eat" (&optional buffer))
-(declare-function eat-term-reset "eat" (terminal))
-(declare-function eat-term-redisplay "eat" (terminal))
-(declare-function eat--set-cursor "eat" (terminal &rest args))
-(declare-function eat-term-display-cursor "eat" (terminal))
-(declare-function eat-term-display-beginning "eat" (terminal))
-(declare-function eat-term-live-p "eat" (terminal))
-(declare-function eat-term-parameter "eat" (terminal parameter) t)
-(declare-function eat-emacs-mode "eat" ())
-(declare-function eat-semi-char-mode "eat" ())
-(declare-function eat--adjust-process-window-size "eat" (&rest args))
-
-;; Declare external variables and functions from vterm package
-(defvar vterm-buffer-name)
-(defvar vterm-shell)
-(defvar vterm-environment)
-(defvar vterm-copy-mode)
-(declare-function vterm "vterm" (&optional buffer-name))
-(declare-function vterm-copy-mode "vterm" (&optional arg))
-(declare-function vterm-send-string "vterm" (string &optional paste-p))
-
 ;;;; Customization optionsy
 (defgroup claude-code nil
   "Claude AI interface for Emacs."
   :group 'tools)
+
+(defgroup claude-code-eat nil
+  "Eat terminal backend specific settings for Claude Code."
+  :group 'claude-code)
 
 (defface claude-code-repl-face
   nil
   "Face for Claude REPL."
   :group 'claude-code)
 
-;; Terminal faces
-(defface claude-code-prompt-annotation-running-face
+;; Eat-specific terminal faces
+(defface claude-code-eat-prompt-annotation-running-face
   '((t :inherit eat-shell-prompt-annotation-running))
-  "Face for running prompt annotations in Claude terminal."
-  :group 'claude-code)
+  "Face for running prompt annotations in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-prompt-annotation-success-face
+(defface claude-code-eat-prompt-annotation-success-face
   '((t :inherit eat-shell-prompt-annotation-success))
-  "Face for successful prompt annotations in Claude terminal."
-  :group 'claude-code)
+  "Face for successful prompt annotations in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-prompt-annotation-failure-face
+(defface claude-code-eat-prompt-annotation-failure-face
   '((t :inherit eat-shell-prompt-annotation-failure))
-  "Face for failed prompt annotations in Claude terminal."
-  :group 'claude-code)
+  "Face for failed prompt annotations in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-term-bold-face
+(defface claude-code-eat-term-bold-face
   '((t :inherit eat-term-bold))
-  "Face for bold text in Claude terminal."
-  :group 'claude-code)
+  "Face for bold text in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-term-faint-face
+(defface claude-code-eat-term-faint-face
   '((t :inherit eat-term-faint))
-  "Face for faint text in Claude terminal."
-  :group 'claude-code)
+  "Face for faint text in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-term-italic-face
+(defface claude-code-eat-term-italic-face
   '((t :inherit eat-term-italic))
-  "Face for italic text in Claude terminal."
-  :group 'claude-code)
+  "Face for italic text in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-term-slow-blink-face
+(defface claude-code-eat-term-slow-blink-face
   '((t :inherit eat-term-slow-blink))
-  "Face for slow blinking text in Claude terminal."
-  :group 'claude-code)
+  "Face for slow blinking text in Claude eat terminal."
+  :group 'claude-code-eat)
 
-(defface claude-code-term-fast-blink-face
+(defface claude-code-eat-term-fast-blink-face
   '((t :inherit eat-term-fast-blink))
-  "Face for fast blinking text in Claude terminal."
-  :group 'claude-code)
+  "Face for fast blinking text in Claude eat terminal."
+  :group 'claude-code-eat)
 
 (dotimes (i 10)
-  (let ((face-name (intern (format "claude-code-term-font-%d-face" i)))
+  (let ((face-name (intern (format "claude-code-eat-term-font-%d-face" i)))
         (eat-face (intern (format "eat-term-font-%d" i))))
     (eval `(defface ,face-name
              '((t :inherit ,eat-face))
-             ,(format "Face for font %d in Claude terminal." i)
-             :group 'claude-code))))
+             ,(format "Face for font %d in Claude eat terminal." i)
+             :group 'claude-code-eat))))
 
 (defcustom claude-code-term-name "xterm-256color"
   "Terminal type to use for Claude REPL."
@@ -415,6 +390,26 @@ Returns the buffer containing the terminal.")
 
 ;;;;; eat backend implementations
 
+;; Declare external variables and functions from eat package
+(defvar eat--semi-char-mode)
+(defvar eat-terminal)
+(defvar eat--synchronize-scroll-function)
+(defvar eat-term-name)
+(defvar eat-invisible-cursor-type)
+(declare-function eat-make "eat" (name program &optional startfile &rest switches))
+(declare-function eat-term-send-string "eat" (terminal string))
+(declare-function eat-kill-process "eat" (&optional buffer))
+(declare-function eat-term-reset "eat" (terminal))
+(declare-function eat-term-redisplay "eat" (terminal))
+(declare-function eat--set-cursor "eat" (terminal &rest args))
+(declare-function eat-term-display-cursor "eat" (terminal))
+(declare-function eat-term-display-beginning "eat" (terminal))
+(declare-function eat-term-live-p "eat" (terminal))
+(declare-function eat-term-parameter "eat" (terminal parameter) t)
+(declare-function eat-emacs-mode "eat" ())
+(declare-function eat-semi-char-mode "eat" ())
+(declare-function eat--adjust-process-window-size "eat" (&rest args))
+
 ;; Helper to ensure eat is loaded
 (defun claude-code--ensure-eat ()
   "Ensure eat package is loaded."
@@ -519,29 +514,32 @@ BACKEND is the terminal backend type (should be \\='eat)."
 
   ;; Set up custom scroll function to stop eat from scrolling to the top
   (setq-local eat--synchronize-scroll-function #'claude-code--eat-synchronize-scroll)
-  
+
   ;; Configure bell handler - ensure eat-terminal exists
   (when (bound-and-true-p eat-terminal)
     (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
   ;; Set up eat-specific window width tracking
-  (claude-code--setup-eat-window-tracking))
+  (claude-code--setup-eat-window-tracking)
+
+  ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
+  (sleep-for claude-code-startup-delay))
 
 (cl-defmethod claude-code--term-customize-faces ((backend (eql eat)))
   "Apply face customizations for eat terminal.
 
 BACKEND is the terminal backend type (should be \\='eat)."
   ;; Remap eat faces to Claude-specific faces
-  (face-remap-add-relative 'eat-shell-prompt-annotation-running 'claude-code-prompt-annotation-running-face)
-  (face-remap-add-relative 'eat-shell-prompt-annotation-success 'claude-code-prompt-annotation-success-face)
-  (face-remap-add-relative 'eat-shell-prompt-annotation-failure 'claude-code-prompt-annotation-failure-face)
-  (face-remap-add-relative 'eat-term-bold 'claude-code-term-bold-face)
-  (face-remap-add-relative 'eat-term-faint 'claude-code-term-faint-face)
-  (face-remap-add-relative 'eat-term-italic 'claude-code-term-italic-face)
-  (face-remap-add-relative 'eat-term-slow-blink 'claude-code-term-slow-blink-face)
-  (face-remap-add-relative 'eat-term-fast-blink 'claude-code-term-fast-blink-face)
+  (face-remap-add-relative 'eat-shell-prompt-annotation-running 'claude-code-eat-prompt-annotation-running-face)
+  (face-remap-add-relative 'eat-shell-prompt-annotation-success 'claude-code-eat-prompt-annotation-success-face)
+  (face-remap-add-relative 'eat-shell-prompt-annotation-failure 'claude-code-eat-prompt-annotation-failure-face)
+  (face-remap-add-relative 'eat-term-bold 'claude-code-eat-term-bold-face)
+  (face-remap-add-relative 'eat-term-faint 'claude-code-eat-term-faint-face)
+  (face-remap-add-relative 'eat-term-italic 'claude-code-eat-term-italic-face)
+  (face-remap-add-relative 'eat-term-slow-blink 'claude-code-eat-term-slow-blink-face)
+  (face-remap-add-relative 'eat-term-fast-blink 'claude-code-eat-term-fast-blink-face)
   (dolist (i (number-sequence 0 9))
     (let ((eat-face (intern (format "eat-term-font-%d" i)))
-          (claude-face (intern (format "claude-code-term-font-%d-face" i))))
+          (claude-face (intern (format "claude-code-eat-term-font-%d-face" i))))
       (face-remap-add-relative eat-face claude-face))))
 
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql eat)))
@@ -630,6 +628,15 @@ BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--cleanup-eat-window-tracking))
 
 ;;;;; vterm backend implementations
+
+;; Declare external variables and functions from vterm package
+(defvar vterm-buffer-name)
+(defvar vterm-shell)
+(defvar vterm-environment)
+(defvar vterm-copy-mode)
+(declare-function vterm "vterm" (&optional buffer-name))
+(declare-function vterm-copy-mode "vterm" (&optional arg))
+(declare-function vterm-send-string "vterm" (string &optional paste-p))
 
 ;; Helper to ensure vterm is loaded
 (defun claude-code--ensure-vterm ()
@@ -1102,9 +1109,6 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; disable scroll bar, fringes
       (setq-local vertical-scroll-bar nil)
       (setq-local fringe-mode 0)
-
-      ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
-      (sleep-for claude-code-startup-delay)
 
       ;; Add cleanup hook to remove directory mappings when buffer is killed
       (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)

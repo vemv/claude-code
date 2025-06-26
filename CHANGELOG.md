@@ -6,6 +6,9 @@ All notable changes to claude-code.el will be documented in this file.
 
 ### Added
 
+- New `claude-code-eat` customization group for eat backend specific settings
+  - All eat-specific faces moved to this group with `claude-code-eat-` prefix
+  - Faces can be customized via `M-x customize-group RET claude-code-eat RET`
 - vterm supporte
 - New `claude-code-newline-keybinding-style` customization variable to configure how return and modifier keys behave in Claude buffers
   - `'default` (default): M-return inserts newline, RET sends message
