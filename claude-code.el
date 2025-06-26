@@ -425,7 +425,7 @@ Returns the buffer containing the terminal.")
 (cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal for BACKEND.
 
-BACKEND is the terminal backend type (should be 'eat).
+BACKEND is the terminal backend type (should be \\='eat).
 BUFFER-NAME is the name for the new terminal buffer.
 PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
@@ -437,14 +437,14 @@ SWITCHES are optional command-line arguments for PROGRAM."
 (cl-defmethod claude-code--term-send-string ((backend (eql eat)) string)
   "Send STRING to eat terminal.
 
-BACKEND is the terminal backend type (should be 'eat).
+BACKEND is the terminal backend type (should be \\='eat).
 STRING is the text to send to the terminal."
   (eat-term-send-string eat-terminal string))
 
 (cl-defmethod claude-code--term-kill-process ((backend (eql eat)) buffer)
   "Kill the eat terminal process in BUFFER.
 
-BACKEND is the terminal backend type (should be 'eat).
+BACKEND is the terminal backend type (should be \\='eat).
 BUFFER is the terminal buffer containing the process to kill."
   (with-current-buffer buffer
     (eat-kill-process)))
@@ -452,7 +452,7 @@ BUFFER is the terminal buffer containing the process to kill."
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql eat)))
   "Switch eat terminal to read-only mode.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\'eat)."
   (claude-code--ensure-eat)
   (eat-emacs-mode)
   (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
@@ -461,7 +461,7 @@ BACKEND is the terminal backend type (should be 'eat)."
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql eat)))
   "Switch eat terminal to interactive mode.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--ensure-eat)
   (eat-semi-char-mode)
   (setq-local eat-invisible-cursor-type nil)
@@ -470,7 +470,7 @@ BACKEND is the terminal backend type (should be 'eat)."
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql eat)))
   "Check if eat terminal is in read-only mode.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\='eat)."
   (not eat--semi-char-mode))
 
 (defun claude-code--eat-synchronize-scroll (windows)
@@ -507,7 +507,7 @@ possible, preventing the scrolling up issue when editing other buffers."
 (cl-defmethod claude-code--term-configure ((backend (eql eat)))
   "Configure eat terminal in current buffer.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--ensure-eat)
   ;; Configure eat-specific settings
   (setq-local eat-term-name "xterm-256color")
@@ -529,7 +529,7 @@ BACKEND is the terminal backend type (should be 'eat)."
 (cl-defmethod claude-code--term-customize-faces ((backend (eql eat)))
   "Apply face customizations for eat terminal.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\='eat)."
   ;; Remap eat faces to Claude-specific faces
   (face-remap-add-relative 'eat-shell-prompt-annotation-running 'claude-code-prompt-annotation-running-face)
   (face-remap-add-relative 'eat-shell-prompt-annotation-success 'claude-code-prompt-annotation-success-face)
@@ -547,7 +547,7 @@ BACKEND is the terminal backend type (should be 'eat)."
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql eat)))
   "Set up the local keymap for Claude Code buffers.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\='eat)."
   (let ((map (make-sparse-keymap)))
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
@@ -626,7 +626,7 @@ ARGS is passed to ORIG-FUN unchanged."
 (cl-defmethod claude-code--term-cleanup ((backend (eql eat)))
   "Perform eat-specific cleanup.
 
-BACKEND is the terminal backend type (should be 'eat)."
+BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--cleanup-eat-window-tracking))
 
 ;;;;; vterm backend implementations
@@ -641,7 +641,7 @@ BACKEND is the terminal backend type (should be 'eat)."
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
   "Create a vterm terminal.
 
-BACKEND is the terminal backend type (should be 'vterm).
+BACKEND is the terminal backend type (should be \\='vterm).
 BUFFER-NAME is the name for the new terminal buffer.
 PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
@@ -668,7 +668,7 @@ SWITCHES are optional command-line arguments for PROGRAM."
 (cl-defmethod claude-code--term-send-string ((backend (eql vterm)) string)
   "Send STRING to vterm terminal.
 
-BACKEND is the terminal backend type (should be 'vterm).
+BACKEND is the terminal backend type (should be \\='vterm).
 _TERMINAL is unused for vterm backend.
 STRING is the text to send to the terminal."
   (vterm-send-string string))
@@ -676,7 +676,7 @@ STRING is the text to send to the terminal."
 (cl-defmethod claude-code--term-kill-process ((backend (eql vterm)) buffer)
   "Kill the vterm terminal process in BUFFER.
 
-BACKEND is the terminal backend type (should be 'vterm).
+BACKEND is the terminal backend type (should be \\='vterm).
 BUFFER is the terminal buffer containing the process to kill."
   (kill-process (get-buffer-process buffer)))
 
@@ -684,27 +684,27 @@ BUFFER is the terminal buffer containing the process to kill."
 (cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
   "Switch vterm terminal to read-only mode.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
   (vterm-copy-mode 1))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql vterm)))
   "Switch vterm terminal to interactive mode.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
   (vterm-copy-mode -1))
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql vterm)))
   "Check if vterm terminal is in read-only mode.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   vterm-copy-mode)
 
 (cl-defmethod claude-code--term-configure ((backend (eql vterm)))
   "Configure vterm terminal in current buffer.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
   ;; Prevent vterm from automatically renaming the buffer
   (setq-local vterm-buffer-name-string nil)
@@ -717,22 +717,24 @@ BACKEND is the terminal backend type (should be 'vterm)."
 (cl-defmethod claude-code--term-customize-faces ((backend (eql vterm)))
   "Apply face customizations for vterm terminal.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   ;; no faces to customize yet (this could change)
   )
 
 (defun claude-code--vterm-send-alt-return ()
+  "Send <alt>-<return> to vterm."
   (interactive)
   (vterm-send-key "" nil t))
 
 (defun claude-code--vterm-send-escape ()
+  "Send escape key to vterm."
   (interactive)
   (vterm-send-key ""))
 
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   (let ((map (make-sparse-keymap)))
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
@@ -770,18 +772,10 @@ BACKEND is the terminal backend type (should be 'vterm)."
   ;; not implemented yet
   )
 
-(cl-defmethod claude-code--term-synchronize-scroll ((backend (eql vterm)) _windows)
-  "Synchronize scrolling for vterm backend.
-
-BACKEND is the terminal backend type (should be 'vterm).
-_WINDOWS is unused for vterm backend."
-  ;; vterm handles its own scrolling, so this is a no-op
-  nil)
-
 (cl-defmethod claude-code--term-cleanup ((backend (eql vterm)))
   "Perform vterm-specific cleanup.
 
-BACKEND is the terminal backend type (should be 'vterm)."
+BACKEND is the terminal backend type (should be \\='vterm)."
   ;; No specific cleanup needed for vterm
   nil)
 
@@ -1000,20 +994,11 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
   (message "Claude is not running"))
 
 (defun claude-code--kill-buffer (buffer)
-  "Kill a Claude BUFFER by cleaning up hooks and processes.
-
-This function handles the proper cleanup sequence for a Claude buffer:
-1. Remove the window configuration change hook
-2. Kill the terminal process
-3. Kill the buffer"
+  "Kill a Claude BUFFER by cleaning up hooks and processes."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (remove-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change t)
       (claude-code--term-cleanup claude-code-terminal-backend)
-      (claude-code--term-kill-process claude-code-terminal-backend buffer)
-      ;; (when (buffer-live-p buffer)      ; [TODO] verify that we really need to do this
-      ;;   (kill-buffer))
-      )))
+      (claude-code--term-kill-process claude-code-terminal-backend buffer))))
 
 (defun claude-code--cleanup-directory-mapping ()
   "Remove entries from directory-buffer map when this buffer is killed.
@@ -1045,17 +1030,6 @@ Returns the selected Claude buffer or nil."
         claude-code-buffer)
     (claude-code--show-not-running-message)
     nil))
-
-(defun claude-code--on-window-configuration-change ()
-  "Handle window configuration change for Claude buffers.
-
-Ensure all Claude buffers stay scrolled to the bottom when window
-configuration changes (e.g., when minibuffer opens/closes)."
-  (dolist (claude-buffer (claude-code--find-all-claude-buffers))
-    (with-current-buffer claude-buffer
-      ;; Get all windows showing this Claude buffer
-      (when-let ((windows (get-buffer-window-list claude-buffer nil t)))
-        (claude-code--term-synchronize-scroll claude-code-terminal-backend windows)))))
 
 (defun claude-code--start (arg extra-switches &optional force-prompt)
   "Start Claude with given command-line EXTRA-SWITCHES.
@@ -1098,7 +1072,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
           (error
            (error "error starting claude")
            (signal 'claude-start-error "error starting claude")))
-      
+        
         ;; Switch to the terminal buffer before configuring
         (when term-buffer
           ;; If eat created a different buffer, kill the original empty one
@@ -1125,18 +1099,13 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
       ;; Scroll synchronization is now handled in claude-code--term-configure
 
-      ;; Add window configuration change hook to keep buffer scrolled to bottom
-      (add-hook 'window-configuration-change-hook #'claude-code--on-window-configuration-change nil t)
-
-      ;; Notification handler is now set in claude-code--term-configure
-
       ;; disable scroll bar, fringes
       (setq-local vertical-scroll-bar nil)
       (setq-local fringe-mode 0)
 
       ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
       (sleep-for claude-code-startup-delay)
-      
+
       ;; Add cleanup hook to remove directory mappings when buffer is killed
       (add-hook 'kill-buffer-hook #'claude-code--cleanup-directory-mapping nil t)
 
@@ -1605,8 +1574,8 @@ Sends <escape><escape> to the Claude Code REPL."
   (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
       (with-current-buffer claude-code-buffer
         (claude-code--term-send-string claude-code-terminal-backend ""))
-        (display-buffer claude-code-buffer))
-    (error "Claude is not running"))
+    (display-buffer claude-code-buffer))
+  (error "Claude is not running"))
 
 ;;;###autoload
 (defun claude-code-fix-error-at-point (&optional arg)
@@ -1648,8 +1617,8 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   "Exit read-only mode and return to normal mode (eat semi-char mode)."
   (interactive)
   (claude-code--with-buffer
-    (claude-code--term-interactive-mode claude-code-terminal-backend)
-    (message "Claude read-only disabled")))
+   (claude-code--term-interactive-mode claude-code-terminal-backend)
+   (message "Claude read-only disabled")))
 
 ;;;###autoload
 (defun claude-code-toggle-read-only-mode ()
@@ -1661,9 +1630,9 @@ buffer. However, you are not allowed to change the buffer contents or
 enter Claude commands."
   (interactive)
   (claude-code--with-buffer
-    (if (not (claude-code--term-in-read-only-p claude-code-terminal-backend))
-        (claude-code-read-only-mode)
-      (claude-code-exit-read-only-mode))))
+   (if (not (claude-code--term-in-read-only-p claude-code-terminal-backend))
+       (claude-code-read-only-mode)
+     (claude-code-exit-read-only-mode))))
 
 ;;;; Mode definition
 ;;;###autoload
