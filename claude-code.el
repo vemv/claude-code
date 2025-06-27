@@ -17,7 +17,7 @@
 (require 'project)
 (require 'cl-lib)
 
-;;;; Customization optionsy
+;;;; Customization options
 (defgroup claude-code nil
   "Claude AI interface for Emacs."
   :group 'tools)
@@ -590,6 +590,7 @@ BACKEND is the terminal backend type (should be \\='eat)."
 (declare-function vterm "vterm" (&optional buffer-name))
 (declare-function vterm-copy-mode "vterm" (&optional arg))
 (declare-function vterm-send-string "vterm" (string &optional paste-p))
+(declare-function vterm--window-adjust-process-window-size "vterm" (process window))
 
 ;; Helper to ensure vterm is loaded
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
@@ -610,7 +611,9 @@ SWITCHES are optional command-line arguments for PROGRAM."
                              vterm-environment))
          (buffer (get-buffer-create buffer-name)))
     (with-current-buffer buffer
+      (pop-to-buffer buffer)
       (vterm-mode)
+      (delete-window (get-buffer-window buffer))
       buffer)))
 
 (defun claude-code--ensure-vterm ()
@@ -949,7 +952,7 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       ;; Remove the adjust window size advice
-      (advice-remove 'eat--adjust-process-window-size #'claude-code--eat-window-size-advice)
+      (advice-remove (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) #'claude-code--adjust-window-size-advice)
       ;; Clean the window widths hash table
       (when claude-code--window-widths
         (clrhash claude-code--window-widths))
@@ -1014,31 +1017,19 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
          ;; Prompt for instance name (only if instances exist, or force-prompt is true)
          (instance-name (claude-code--prompt-for-instance-name dir existing-instance-names force-prompt))
          (buffer-name (claude-code--buffer-name instance-name))
-         (buffer (get-buffer-create buffer-name))
          (program-switches (if extra-switches
                                (append claude-code-program-switches extra-switches)
-                             claude-code-program-switches)))
-    ;; Start the terminal process
+                             claude-code-program-switches))
+
+         ;; (process-adaptive-read-buffering nil)
+         ;; [TODO] do we need this?
+
+         ;; Start the terminal process
+         (buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)))
+
+    ;; setup claude buffer
     (with-current-buffer buffer
-      (cd dir)
-      
-      (let ((process-adaptive-read-buffering nil)
-            (term-buffer nil))
-        (condition-case nil
-            (setq term-buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches))
-          (error
-           (error "error starting claude")
-           (signal 'claude-start-error "error starting claude")))
-        
-        ;; Switch to the terminal buffer before configuring
-        (when term-buffer
-          ;; If eat created a different buffer, kill the original empty one
-          (unless (eq buffer term-buffer)
-            (kill-buffer buffer))
-          (set-buffer term-buffer)
-          ;; Update our buffer reference to the actual terminal buffer
-          (setq buffer term-buffer)))
-      
+
       ;; Configure terminal with backend-specific settings
       (claude-code--term-configure claude-code-terminal-backend)
 
@@ -1046,8 +1037,8 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (setq claude-code--window-widths (make-hash-table :test 'eq :weakness 'key))
 
       ;; Set up window width tracking
-      (advice-add (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) :around #'claude-code--eat-window-size-advice)
-      
+      (advice-add (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) :around #'claude-code--adjust-window-size-advice)
+
       ;; Setup our custom key bindings
       (claude-code--setup-claude-buffer-keymap)
 
@@ -1059,8 +1050,6 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
       ;; set buffer face
       (buffer-face-set :inherit 'claude-code-repl-face)
-
-      ;; Scroll synchronization is now handled in claude-code--term-configure
 
       ;; disable scroll bar, fringes
       (setq-local vertical-scroll-bar nil)
@@ -1075,16 +1064,13 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Disable vertical scroll bar in claude buffer
       (setq-local vertical-scroll-bar nil)
 
-      ;; Display buffer. Set window parameters here, as they can get overriden if set earlier when display-buffer is called.
-      ;; Claude provides a litte space on the right but not on the left, so add a 1 column left margin and a 0 right margin.
-      ;; Turn off frignes in the claude buffer.
+      ;; Display buffer, setting window parameters. Claude provides a litte space on the right but
+      ;; not on the left, so add a 1 column left margin and a 0 right margin. Turn off frignes in
+      ;; the claude buffer.
       (display-buffer buffer '(window-parameters . ((left-margin-width . 0)
                                                     (right-margin-width . 0)
                                                     (left-fringe-width . 0)
-                                                    (right-fringe-width . 0))))
-
-      ;; Make sure we're still in the terminal buffer at the end
-      (set-buffer buffer))
+                                                    (right-fringe-width . 0)))))
     
     (when switch-after
       (switch-to-buffer buffer))))
@@ -1146,13 +1132,15 @@ to choose from.
 If current buffer belongs to a project start Claude in the project's
 root directory. Otherwise start in the directory of the current buffer
 file, or the current value of `default-directory' if no project and no
-buffer file.
+ buffer file.
 
 With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt for the project directory."
   (interactive "P")
 
   (let ((extra-switches '("--resume")))
-    (claude-code--start arg extra-switches nil t)))
+    (claude-code--start arg extra-switches nil t))
+  (claude-code--term-send-string claude-code-terminal-backend "")
+  (beginning-of-buffer))
 
 ;;;###autoload
 (defun claude-code-new-instance (&optional arg)
@@ -1292,8 +1280,36 @@ TERMINAL is the eat terminal parameter (not used)."
 (defvar claude-code--window-widths nil
   "Hash table mapping windows to their last known widths for eat terminals.")
 
+;; (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
+;;   "Advice for `eat--adjust-process-window-size' or `vterm--adjust-process-window-size' to only signal on width change.
+
+;; Returns the size returned by ORIG-FUN only when the width of any Claude
+;; window has changed, not when only the height has changed. This prevents
+;; unnecessary terminal reflows when only vertical space changes.
+
+;; ARGS is passed to ORIG-FUN unchanged."
+;;   (let ((result (apply orig-fun args)))
+;;     ;; Check all windows for Claude buffers
+;;     (let ((width-changed nil))
+;;       (dolist (window (window-list))
+;;         (let ((buffer (window-buffer window)))
+;;           (when (and buffer (claude-code--buffer-p buffer))
+;;             (let ((current-width (window-width window))
+;;                   (stored-width (gethash window claude-code--window-widths)))
+;;               ;; Check if this is a new window or if width changed
+;;               (when (or (not stored-width) (/= current-width stored-width))
+;;                 (setq width-changed t)
+;;                 ;; Update stored width
+;;                 (puthash window current-width claude-code--window-widths))))))
+;;       ;; Return result only if a Claude window width changed and
+;;       ;; we're not in read-only mode. otherwise nil. Nil means do
+;;       ;; not send a window size changed event to the Claude process.
+;;       (if (and width-changed (not (claude-code--term-in-read-only-p 'eat)))
+;;           result
+;;         nil))))
+
 (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
-  "Advice for `eat--adjust-process-window-size' to only signal on width change.
+  "Advice for `eat--adjust-process-window-size' or `vterm--adjust-process-window-size' to only signal on width change.
 
 Returns the size returned by ORIG-FUN only when the width of any Claude
 window has changed, not when only the height has changed. This prevents
@@ -1316,7 +1332,7 @@ ARGS is passed to ORIG-FUN unchanged."
       ;; Return result only if a Claude window width changed and
       ;; we're not in read-only mode. otherwise nil. Nil means do
       ;; not send a window size changed event to the Claude process.
-      (if (and width-changed (not (claude-code--term-in-read-only-p 'eat)))
+      (if (and width-changed (not (claude-code--term-in-read-only-p claude-code-terminal-backend)))
           result
         nil))))
 
