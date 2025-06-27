@@ -618,6 +618,16 @@ SWITCHES are optional command-line arguments for PROGRAM."
                              vterm-environment))
          (buffer (get-buffer-create buffer-name)))
     (with-current-buffer buffer
+      ;; vterm needs to have an open window before starting the claude
+      ;; process; otherwise Claude doesn't seem to know how wide its
+      ;; terminal window is and it draws the input box too wide. But
+      ;; the user may not want to pop to the buffer. For some reason
+      ;; `display-buffer' also leads to wonky results, it has to be
+      ;; `pop-to-buffer'. So, show the buffer, start vterm-mode (which
+      ;; starts the vterm-shell claude process), and then hide the
+      ;; buffer. We'll optionally re-open it later.
+      ;; 
+      ;; [TODO] see if there's a cleaner way to do this.
       (pop-to-buffer buffer)
       (vterm-mode)
       (delete-window (get-buffer-window buffer))
