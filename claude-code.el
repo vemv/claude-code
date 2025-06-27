@@ -670,7 +670,7 @@ BACKEND is the terminal backend type (should be \\='vterm)."
 
 BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
-  ;; set TERM 
+  ;; set TERM
   (setq vterm-term-environment-variable claude-code-term-name)
   ;; Prevent vterm from automatically renaming the buffer
   (setq-local vterm-buffer-name-string nil)
@@ -678,7 +678,9 @@ BACKEND is the terminal backend type (should be \\='vterm)."
   (when claude-code-eat-never-truncate-claude-buffer
     (setq-local vterm-max-scrollback 1000000))
   ;; Disable automatic scrolling to bottom on output to prevent flickering
-  (setq-local vterm-scroll-to-bottom-on-output nil))
+  (setq-local vterm-scroll-to-bottom-on-output nil)
+  ;; Set up bell detection advice
+  (advice-add 'vterm--filter :around #'claude-code--vterm-bell-detector))
 
 (cl-defmethod claude-code--term-customize-faces ((backend (eql vterm)))
   "Apply face customizations for vterm terminal.
@@ -962,6 +964,9 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
     (with-current-buffer buffer
       ;; Remove the adjust window size advice
       (advice-remove (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) #'claude-code--adjust-window-size-advice)
+      ;; Remove vterm bell detector advice if using vterm backend
+      (when (eq claude-code-terminal-backend 'vterm)
+        (advice-remove 'vterm--filter #'claude-code--vterm-bell-detector))
       ;; Clean the window widths hash table
       (when claude-code--window-widths
         (clrhash claude-code--window-widths))
@@ -1276,6 +1281,17 @@ TERMINAL is the eat terminal parameter (not used)."
     (funcall claude-code-notification-function
              "Claude Ready"
              "Waiting for your response")))
+
+(defun claude-code--vterm-bell-detector (orig-fun process input)
+  "Detect bell characters in vterm output and trigger notifications.
+
+ORIG-FUN is the original vterm--filter function.
+PROCESS is the vterm process.
+INPUT is the terminal output string."
+  (when (and (string-match-p "\007" input)
+             (buffer-local-value 'claude-code-mode (process-buffer process)))
+    (claude-code--notify nil))
+  (funcall orig-fun process input))
 
 (defun claude-code--get-cursor-position ()
   "Get the cursor position in Claude Code's input box."
