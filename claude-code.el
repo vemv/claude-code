@@ -82,9 +82,9 @@ This controls how the return key and its modifiers behave in Claude buffers:
 `\"S\"' is the shift key.
 `\"s\"' is the hyper key, which is the COMMAND key on macOS."
   :type '(choice (const :tag "Newline on shift-return (s-return for newline, RET to send)" newline-on-shift-return)
-                 (const :tag "Newline on alt-return (M-return for newline, RET to send)" newline-on-alt0return)
+                 (const :tag "Newline on alt-return (M-return for newline, RET to send)" newline-on-alt-return)
                  (const :tag "Shift-return to send (RET for newline, S-return to send)" shift-return-to-send)
-                 (const :tag "Super-return (RET for newline, s-return to send)" super-return-to-send))
+                 (const :tag "Super-return to send (RET for newline, s-return to send)" super-return-to-send))
   :group 'claude-code)
 
 (defcustom claude-code-enable-notifications t
@@ -564,19 +564,18 @@ BACKEND is the terminal backend type (should be \\='eat)."
     (pcase claude-code-newline-keybinding-style
       ('newline-on-shift-return
        ;; S-return enters a line break, RET sends the command
-       (define-key map (kbd "<return>") (kbd "RET"))
-       (define-key map (kbd "<S-return>") "\e\C-m"))
+       (define-key map (kbd "<S-return>") "\e\C-m")
+       (define-key map (kbd "<return>") (kbd "RET")))
       ('newline-on-alt-return
        ;; M-return enters a line break, RET sends the command
-       (define-key map (kbd "<return>") (kbd "RET"))
-       (define-key map (kbd "<M-return>") "\e\C-m"))
+       (define-key map (kbd "<M-return>") "\e\C-m")
+       (define-key map (kbd "<return>") (kbd "RET")))
       ('shift-return-to-send
        ;; RET enters a line break, S-return sends the command
        (define-key map (kbd "<return>") "\e\C-m")
        (define-key map (kbd "<S-return>") (kbd "RET")))
       ('super-return-to-send
-       ;; RET enters a line break, s-return sends the command. "s" is
-       ;; the hyper key, the COMMAND key on macOS.
+       ;; RET enters a line break, s-return sends the command. 
        (define-key map (kbd "<return>") "\e\C-m")
        (define-key map (kbd "<s-return>") (kbd "RET"))))
 
@@ -704,15 +703,37 @@ BACKEND is the terminal backend type (should be \\='vterm)."
   ;; no faces to customize yet (this could change)
   )
 
+(defun claude-code--vterm-send-escape ()
+  "Send escape key to vterm."
+  (interactive)
+  (vterm-send-key ""))
+
+(defun claude-code--vterm-send-return ()
+  "Send escape key to vterm."
+  (interactive)
+  (vterm-send-key ""))
+
 (defun claude-code--vterm-send-alt-return ()
   "Send <alt>-<return> to vterm."
   (interactive)
   (vterm-send-key "" nil t))
 
-(defun claude-code--vterm-send-escape ()
+(defun claude-code--vterm-send-shift-return ()
+  "Send shift return to vterm."
+  (interactive)
+  (vterm-send-key "" t))
+
+(defun claude-code--vterm-send-super-return ()
   "Send escape key to vterm."
   (interactive)
-  (vterm-send-key ""))
+  ;; (vterm-send-key " " t)
+  (vterm-send-key (kbd "s-<return>") t))
+
+;; (defun claude-code--vterm-send-alt-return ()
+;;   "Send alt-return to vterm for newline without submitting."
+;;   (message "claude-code--vterm-send-alt-return invoked")
+;;   (interactive)
+;;   (vterm-send-key "" nil t))
 
 (cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers.
@@ -725,35 +746,25 @@ BACKEND is the terminal backend type (should be \\='vterm)."
     ;; C-g for escape
     (define-key map (kbd "C-g") #'claude-code--vterm-send-escape)
 
-    ;; <alt>-<return> for newline without submitting
-    (define-key map (kbd "M-<return>") #'claude-code--vterm-send-alt-return)
-    
-    ;; (define-key map (kbd "<return>") (lambda () (interactive) (vterm-send-key "" nil t)))
-    ;; (define-key map (kbd "s-<return>") (lambda () (interactive) (vterm-send-key "")))
-    
-    ;; Configure key bindings based on user preference
-    ;; (pcase claude-code-newline-keybinding-style
-    ;;   ('default
-    ;;    ;; Default: M-return enters a line break, RET sends the command
-    ;;    (define-key map (kbd "<return>") (kbd "RET"))
-    ;;    (define-key map (kbd "<M-return>") "\e\C-m"))
-    ;;   ('newline-on-return
-    ;;    ;; Newline on return: RET enters a line break, M-return sends the command
-    ;;    (define-key map (kbd "<return>") "\e\C-m")
-    ;;    (define-key map (kbd "<M-return>") (kbd "RET")))
-    ;;   ('newline-on-shift-return
-    ;;    ;; Shift-return: RET sends the command, S-return enters a line break
-    ;;    (define-key map (kbd "<return>") (kbd "RET"))
-    ;;    (define-key map (kbd "<S-return>") "\e\C-m"))
-    ;;   ('super-return-to-send
-    ;;    ;; Super-return: RET enters a line break, s-return sends the command
-    ;;    (define-key map (kbd "<return>") "\e\C-m")
-    ;;    (define-key map (kbd "<s-return>") (kbd "RET"))))
+    (pcase claude-code-newline-keybinding-style
+      ('newline-on-shift-return
+       ;; S-return enters a line break, RET sends the command
+       (define-key map (kbd "<S-return>") #'claude-code--vterm-send-alt-return)
+       (define-key map (kbd "<return>") #'claude-code--vterm-send-return))
+      ('newline-on-alt-return
+       ;; M-return enters a line break, RET sends the command
+       (define-key map (kbd "<M-return>") #'claude-code--vterm-send-alt-return)
+       (define-key map (kbd "<return>") #'claude-code--vterm-send-return))
+      ('shift-return-to-send
+       ;; RET enters a line break, S-return sends the command
+       (define-key map (kbd "<return>") #'claude-code--vterm-send-alt-return)
+       (define-key map (kbd "<S-return>") #'claude-code--vterm-send-return))
+      ('super-return-to-send
+       ;; RET enters a line break, s-return sends the command.
+       (define-key map (kbd "<return>") #'claude-code--vterm-send-alt-return)
+       (define-key map (kbd "<s-return>") #'claude-code--vterm-send-return)))
 
-    (use-local-map map))
-  
-  ;; not implemented yet
-  )
+    (use-local-map map)))
 
 (cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((backend (eql vterm)))
   "Get the BACKEND specific function that adjusts window size."
