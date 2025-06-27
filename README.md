@@ -14,8 +14,8 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 - Fix error at point - Send flycheck or flymake error at point to Claude, have Claude fix it.
 - Commands to show, hide, switch to Claude terminal buffers
 - Claude terminal niceties - `C-g` to quit/escape, 3 options for entering newlines and submitting (eat backend only)
-- Desktop notifications when Claude finishes processing and awaits input (eat backend only)
-- Supports eat and vterm for the terminal backen
+- Desktop notifications when Claude finishes processing and awaits input
+- Supports eat and vterm for the terminal backend
 - Customizable key bindings and appearance settings
 
 ## Installation
@@ -345,11 +345,11 @@ Claude Code uses a terminal emulator backend for the Claude interface. The backe
 
 ```elisp
 ;; Configure the terminal backend (default is 'eat)
-;; Currently only 'eat is supported
+;; Supported values: 'eat or 'vterm
 (setq claude-code-terminal-backend 'eat)
 ```
 
-Currently, only the [eat](https://codeberg.org/akib/emacs-eat) terminal emulator is fully supported. Support for vterm is planned for future versions.
+Both [eat](https://codeberg.org/akib/emacs-eat) and [vterm](https://github.com/akermu/emacs-libvterm) terminal emulators are supported. Note that some features like customizable newline keybinding styles are currently only available with the eat backend.
 
 ### Eat-specific Customization
 
@@ -370,7 +370,7 @@ When using the eat terminal backend, there are additional customization options 
 
 ## Limitations
 
-- `claude-code.el` only supports using [eat](https://codeberg.org/akib/emacs-eat) for the Claude Code terminal window. Eat provides better rendering with less flickering and visual artifacts compared to other terminal emulators like ansi-term and vterm in testing.
+- `claude-code.el` supports both [eat](https://codeberg.org/akib/emacs-eat) and [vterm](https://github.com/akermu/emacs-libvterm) terminal emulators. Some features like customizable newline keybinding styles are currently only available with the eat backend.
 
 ## Contributing
 

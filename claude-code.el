@@ -1301,34 +1301,6 @@ INPUT is the terminal output string."
       (when match
         (+ match 1)))))
 
-;; (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
-;;   "Advice for `eat--adjust-process-window-size' or `vterm--adjust-process-window-size' to only signal on width change.
-
-;; Returns the size returned by ORIG-FUN only when the width of any Claude
-;; window has changed, not when only the height has changed. This prevents
-;; unnecessary terminal reflows when only vertical space changes.
-
-;; ARGS is passed to ORIG-FUN unchanged."
-;;   (let ((result (apply orig-fun args)))
-;;     ;; Check all windows for Claude buffers
-;;     (let ((width-changed nil))
-;;       (dolist (window (window-list))
-;;         (let ((buffer (window-buffer window)))
-;;           (when (and buffer (claude-code--buffer-p buffer))
-;;             (let ((current-width (window-width window))
-;;                   (stored-width (gethash window claude-code--window-widths)))
-;;               ;; Check if this is a new window or if width changed
-;;               (when (or (not stored-width) (/= current-width stored-width))
-;;                 (setq width-changed t)
-;;                 ;; Update stored width
-;;                 (puthash window current-width claude-code--window-widths))))))
-;;       ;; Return result only if a Claude window width changed and
-;;       ;; we're not in read-only mode. otherwise nil. Nil means do
-;;       ;; not send a window size changed event to the Claude process.
-;;       (if (and width-changed (not (claude-code--term-in-read-only-p 'eat)))
-;;           result
-;;         nil))))
-
 (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
   "Advice to only signal on width change.
 
