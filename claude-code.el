@@ -31,6 +31,85 @@
   "Face for Claude REPL."
   :group 'claude-code)
 
+(defcustom claude-code-term-name "xterm-256color"
+  "Terminal type to use for Claude REPL."
+  :type 'string
+  :group 'claude-code)
+
+(defcustom claude-code-start-hook nil
+  "Hook run after Claude is started."
+  :type 'hook
+  :group 'claude-code)
+
+(defcustom claude-code-startup-delay 0.1
+  "Delay in seconds after starting Claude before displaying buffer.
+
+This helps fix terminal layout issues that can occur if the buffer
+is displayed before Claude is fully initialized."
+  :type 'number
+  :group 'claude-code)
+
+(defcustom claude-code-large-buffer-threshold 100000
+  "Size threshold in characters above which buffers are considered \"large\".
+
+When sending a buffer to Claude with `claude-code-send-region` and no
+region is active, prompt for confirmation if buffer size exceeds this value."
+  :type 'integer
+  :group 'claude-code)
+
+(defcustom claude-code-program "claude"
+  "Program to run when starting Claude.
+This is passed as the PROGRAM parameter to `eat-make`."
+  :type 'string
+  :group 'claude-code)
+
+(defcustom claude-code-program-switches nil
+  "List of command line switches to pass to the Claude program.
+These are passed as SWITCHES parameters to `eat-make`."
+  :type '(repeat string)
+  :group 'claude-code)
+
+(defcustom claude-code-newline-keybinding-style 'default
+  "Key binding style for entering newlines and sending messages.
+
+This controls how the return key and its modifiers behave in Claude buffers:
+- \\='default: M-return inserts newline, RET sends message
+- \\='newline-on-return: RET inserts newline, M-return sends message
+- \\='newline-on-shift-return: RET sends message, S-return inserts newline
+- \\='super-return-to-send: RET inserts newline, s-return sends message"
+  :type '(choice (const :tag "Default (M-return for newline, RET to send)" default)
+                 (const :tag "Newline on return (RET for newline, M-return to send)" newline-on-return)
+                 (const :tag "Shift-return (RET to send, S-return for newline)" newline-on-shift-return)
+                 (const :tag "Super-return (RET for newline, s-return to send)" super-return-to-send))
+  :group 'claude-code)
+
+(defcustom claude-code-enable-notifications t
+  "Whether to show notifications when Claude finishes and awaits input."
+  :type 'boolean
+  :group 'claude-code)
+
+(defcustom claude-code-notification-function 'claude-code-default-notification
+  "Function to call for notifications.
+
+The function is called with two arguments:
+- TITLE: Title of the notification
+- MESSAGE: Body of the notification
+
+You can set this to your own custom notification function.
+The default function displays a message and pulses the modeline
+to provide visual feedback when Claude is ready for input."
+  :type 'function
+  :group 'claude-code)
+
+(defcustom claude-code-confirm-kill t
+  "Whether to ask for confirmation before killing Claude instances.
+
+When non-nil, claude-code-kill will prompt for confirmation.
+When nil, Claude instances will be killed without confirmation."
+  :type 'boolean
+  :group 'claude-code)
+
+;;;;; Eat terminal specific customizations
 ;; Eat-specific terminal faces
 (defface claude-code-eat-prompt-annotation-running-face
   '((t :inherit eat-shell-prompt-annotation-running))
@@ -80,45 +159,7 @@
              ,(format "Face for font %d in Claude eat terminal." i)
              :group 'claude-code-eat))))
 
-(defcustom claude-code-term-name "xterm-256color"
-  "Terminal type to use for Claude REPL."
-  :type 'string
-  :group 'claude-code)
-
-(defcustom claude-code-start-hook nil
-  "Hook run after Claude is started."
-  :type 'hook
-  :group 'claude-code)
-
-(defcustom claude-code-startup-delay 0.1
-  "Delay in seconds after starting Claude before displaying buffer.
-
-This helps fix terminal layout issues that can occur if the buffer
-is displayed before Claude is fully initialized."
-  :type 'number
-  :group 'claude-code)
-
-(defcustom claude-code-large-buffer-threshold 100000
-  "Size threshold in characters above which buffers are considered \"large\".
-
-When sending a buffer to Claude with `claude-code-send-region` and no
-region is active, prompt for confirmation if buffer size exceeds this value."
-  :type 'integer
-  :group 'claude-code)
-
-(defcustom claude-code-program "claude"
-  "Program to run when starting Claude.
-This is passed as the PROGRAM parameter to `eat-make`."
-  :type 'string
-  :group 'claude-code)
-
-(defcustom claude-code-program-switches nil
-  "List of command line switches to pass to the Claude program.
-These are passed as SWITCHES parameters to `eat-make`."
-  :type '(repeat string)
-  :group 'claude-code)
-
-(defcustom claude-code-read-only-mode-cursor-type '(box nil nil)
+(defcustom claude-code-eat-read-only-mode-cursor-type '(box nil nil)
   "Type of cursor to use as invisible cursor in Claude Code terminal buffer.
 
 The value is a list of form (CURSOR-ON BLINKING-FREQUENCY CURSOR-OFF).
@@ -168,9 +209,9 @@ BLINKING-FREQUENCY can be nil (no blinking) or a number."
            (cons :tag "Horizontal bar with specified width"
                  (const hbar) integer)
            (const :tag "None" nil)))
-  :group 'claude-code)
+  :group 'claude-code-eat)
 
-(defcustom claude-code-never-truncate-claude-buffer nil
+(defcustom claude-code-eat-never-truncate-claude-buffer nil
   "When non-nil, disable truncation of Claude output buffer.
 
 By default, Eat will truncate the terminal scrollback buffer when it
@@ -182,47 +223,7 @@ without truncation.
 Note: Disabling truncation may consume more memory for very large
 outputs."
   :type 'boolean
-  :group 'claude-code)
-
-(defcustom claude-code-newline-keybinding-style 'default
-  "Key binding style for entering newlines and sending messages.
-
-This controls how the return key and its modifiers behave in Claude buffers:
-- \\='default: M-return inserts newline, RET sends message
-- \\='newline-on-return: RET inserts newline, M-return sends message
-- \\='newline-on-shift-return: RET sends message, S-return inserts newline
-- \\='super-return-to-send: RET inserts newline, s-return sends message"
-  :type '(choice (const :tag "Default (M-return for newline, RET to send)" default)
-                 (const :tag "Newline on return (RET for newline, M-return to send)" newline-on-return)
-                 (const :tag "Shift-return (RET to send, S-return for newline)" newline-on-shift-return)
-                 (const :tag "Super-return (RET for newline, s-return to send)" super-return-to-send))
-  :group 'claude-code)
-
-(defcustom claude-code-enable-notifications t
-  "Whether to show notifications when Claude finishes and awaits input."
-  :type 'boolean
-  :group 'claude-code)
-
-(defcustom claude-code-notification-function 'claude-code-default-notification
-  "Function to call for notifications.
-
-The function is called with two arguments:
-- TITLE: Title of the notification
-- MESSAGE: Body of the notification
-
-You can set this to your own custom notification function.
-The default function displays a message and pulses the modeline
-to provide visual feedback when Claude is ready for input."
-  :type 'function
-  :group 'claude-code)
-
-(defcustom claude-code-confirm-kill t
-  "Whether to ask for confirmation before killing Claude instances.
-
-When non-nil, claude-code-kill will prompt for confirmation.
-When nil, Claude instances will be killed without confirmation."
-  :type 'boolean
-  :group 'claude-code)
+  :group 'claude-code-eat)
 
 ;; Forward declare variables to avoid compilation warnings
 (defvar eat-terminal)
@@ -246,6 +247,9 @@ When nil, Claude instances will be killed without confirmation."
 Keys are directory paths, values are buffer objects.
 This allows remembering which Claude instance the user selected
 for each directory across multiple invocations.")
+
+(defvar claude-code--window-widths nil
+  "Hash table mapping windows to their last known widths for eat terminals.")
 
 ;;;; Key bindings
 ;;;###autoload (autoload 'claude-code-command-map "claude-code")
@@ -451,7 +455,7 @@ BUFFER is the terminal buffer containing the process to kill."
 BACKEND is the terminal backend type (should be \\'eat)."
   (claude-code--ensure-eat)
   (eat-emacs-mode)
-  (setq-local eat-invisible-cursor-type claude-code-read-only-mode-cursor-type)
+  (setq-local eat-invisible-cursor-type claude-code-eat-read-only-mode-cursor-type)
   (eat--set-cursor nil :invisible))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql eat)))
@@ -510,7 +514,7 @@ BACKEND is the terminal backend type (should be \\='eat)."
   (setq-local eat-enable-directory-tracking nil)
   (setq-local eat-enable-shell-command-history nil)
   (setq-local eat-enable-shell-prompt-annotation nil)
-  (when claude-code-never-truncate-claude-buffer
+  (when claude-code-eat-never-truncate-claude-buffer
     (setq-local eat-term-scrollback-size nil))
 
   ;; Set up custom scroll function to stop eat from scrolling to the top
@@ -588,9 +592,11 @@ BACKEND is the terminal backend type (should be \\='eat)."
 (defvar vterm-environment)
 (defvar vterm-copy-mode)
 (declare-function vterm "vterm" (&optional buffer-name))
-(declare-function vterm-copy-mode "vterm" (&optional arg))
-(declare-function vterm-send-string "vterm" (string &optional paste-p))
 (declare-function vterm--window-adjust-process-window-size "vterm" (process window))
+(declare-function vterm-copy-mode "vterm" (&optional arg))
+(declare-function vterm-mode "vterm")
+(declare-function vterm-send-key "vterm" key &optional shift meta ctrl accept-proc-output)
+(declare-function vterm-send-string "vterm" (string &optional paste-p))
 
 ;; Helper to ensure vterm is loaded
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
@@ -666,7 +672,7 @@ BACKEND is the terminal backend type (should be \\='vterm)."
   ;; Prevent vterm from automatically renaming the buffer
   (setq-local vterm-buffer-name-string nil)
   ;; Set scrollback size if needed
-  (when claude-code-never-truncate-claude-buffer
+  (when claude-code-eat-never-truncate-claude-buffer
     (setq-local vterm-max-scrollback 1000000))
   ;; Disable automatic scrolling to bottom on output to prevent flickering
   (setq-local vterm-scroll-to-bottom-on-output nil))
@@ -1122,8 +1128,8 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
   (claude-code--start arg '("--continue")))
 
 ;;;###autoload
-(defun claude-code-resume (&optional session-id arg)
-  "Resume a specific Claude session by ID or choose interactively.
+(defun claude-code-resume (arg)
+  "Resume a specific Claude session by SESSION-ID or choose interactively.
 
 This command starts Claude with the --resume flag to resume a specific
 past session. Claude will present an interactive list of past sessions
@@ -1140,7 +1146,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
   (let ((extra-switches '("--resume")))
     (claude-code--start arg extra-switches nil t))
   (claude-code--term-send-string claude-code-terminal-backend "")
-  (beginning-of-buffer))
+  (goto-char (point-min)))
 
 ;;;###autoload
 (defun claude-code-new-instance (&optional arg)
@@ -1276,10 +1282,6 @@ TERMINAL is the eat terminal parameter (not used)."
       (when match
         (+ match 1)))))
 
-;; window width tracking
-(defvar claude-code--window-widths nil
-  "Hash table mapping windows to their last known widths for eat terminals.")
-
 ;; (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
 ;;   "Advice for `eat--adjust-process-window-size' or `vterm--adjust-process-window-size' to only signal on width change.
 
@@ -1309,7 +1311,10 @@ TERMINAL is the eat terminal parameter (not used)."
 ;;         nil))))
 
 (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
-  "Advice for `eat--adjust-process-window-size' or `vterm--adjust-process-window-size' to only signal on width change.
+  "Advice to only signal on width change.
+
+Works with `eat--adjust-process-window-size' or
+`vterm--adjust-process-window-size' to prevent unnecessary reflows.
 
 Returns the size returned by ORIG-FUN only when the width of any Claude
 window has changed, not when only the height has changed. This prevents

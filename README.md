@@ -135,13 +135,7 @@ In the Claude terminal, you can switch to a read-only mode to select and copy te
 - `C-c C-e` (`eat-emacs-mode`) - Switch to read-only mode with normal Emacs cursor for text selection
 - `C-c C-j` (`semi-char-mode`) - Return to normal terminal mode
 
-The cursor appearance in read-only mode can be customized via the `claude-code-read-only-mode-cursor-type` variable. This variable uses the format `(CURSOR-ON BLINKING-FREQUENCY CURSOR-OFF)`. For more information, run `M-x describe-variable RET claude-code-read-only-mode-cursor-type RET`.
-
-```elisp
-;; Customize cursor type in read-only mode (default is '(box nil nil))
-;; Cursor type options: 'box, 'hollow, 'bar, 'hbar, or nil
-(setq claude-code-read-only-mode-cursor-type '(bar nil nil))
-```
+The cursor appearance in read-only mode can be customized via the `claude-code-eat-read-only-mode-cursor-type` variable when using the eat backend. See the "Eat-specific Customization" section for details.
 
 ### Multiple Claude Instances
 
@@ -209,11 +203,6 @@ This allows you to have separate Claude conversations for different aspects of y
 ;; If a buffer is larger than this threshold, claude-code-send-region will ask for confirmation
 ;; before sending the entire buffer to Claude
 (setq claude-code-large-buffer-threshold 100000)
-
-;; Disable truncation of Claude output buffer (default is nil)
-;; When set to t, claude-code.el can output display content without truncation
-;; This is useful when working with large Claude buffers
-(setq claude-code-never-truncate-claude-buffer t)
 
 ;; Configure key binding style for entering newlines and sending messages in Claude buffers
 ;; Available styles:
@@ -361,6 +350,23 @@ Claude Code uses a terminal emulator backend for the Claude interface. The backe
 ```
 
 Currently, only the [eat](https://codeberg.org/akib/emacs-eat) terminal emulator is fully supported. Support for vterm is planned for future versions.
+
+### Eat-specific Customization
+
+When using the eat terminal backend, there are additional customization options available:
+
+```elisp
+;; Customize cursor type in read-only mode (default is '(box nil nil))
+;; The format is (CURSOR-ON BLINKING-FREQUENCY CURSOR-OFF)
+;; Cursor type options: 'box, 'hollow, 'bar, 'hbar, or nil
+(setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
+
+;; Disable truncation of Claude output buffer (default is nil)
+;; When set to t, eat will not truncate the terminal scrollback buffer,
+;; allowing Claude to output unlimited content without truncation
+;; Note: This may consume more memory for very large outputs
+(setq claude-code-eat-never-truncate-claude-buffer t)
+```
 
 ## Limitations
 
