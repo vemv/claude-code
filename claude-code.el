@@ -608,9 +608,10 @@ SWITCHES are optional command-line arguments for PROGRAM."
                               "TERM_PROGRAM=emacs"
                               "FORCE_CODE_TERMINAL=true")
                              vterm-environment))
-         (vterm-buffer-name buffer-name))
-    ;; Create vterm buffer and process
-    (vterm)))
+         (buffer (get-buffer-create buffer-name)))
+    (with-current-buffer buffer
+      (vterm-mode)
+      buffer)))
 
 (defun claude-code--ensure-vterm ()
   "Ensure vterm package is loaded."
