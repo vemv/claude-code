@@ -86,6 +86,23 @@ This controls how the return key and its modifiers behave in Claude buffers:
                  (const :tag "Shift-return to send (RET for newline, S-return to send)" shift-return-to-send)
                  (const :tag "Super-return to send (RET for newline, s-return to send)" super-return-to-send))
   :group 'claude-code)
+(defcustom claude-code-newline-keybinding-style 'newline-on-shift-return
+  "Key binding style for entering newlines and sending messages.
+
+This controls how the return key and its modifiers behave in Claude buffers:
+- \\='newline-on-shift-return: S-return enters a line break, RET sends the
+  command (default)
+- \\='newline-on-alt-return: M-return enters a line break, RET sends the command
+- \\='shift-return-to-send: RET enters a line break, S-return sends the command
+- \\='super-return-to-send: RET enters a line break, s-return sends the command
+
+`\"S\"' is the shift key.
+`\"s\"' is the hyper key, which is the COMMAND key on macOS."
+  :type '(choice (const :tag "Newline on shift-return (s-return for newline, RET to send)" newline-on-shift-return)
+                 (const :tag "Newline on alt-return (M-return for newline, RET to send)" newline-on-alt-return)
+                 (const :tag "Shift-return to send (RET for newline, S-return to send)" shift-return-to-send)
+                 (const :tag "Super-return to send (RET for newline, s-return to send)" super-return-to-send))
+  :group 'claude-code)
 
 (defcustom claude-code-enable-notifications t
   "Whether to show notifications when Claude finishes and awaits input."
@@ -229,17 +246,7 @@ outputs."
   :type 'boolean
   :group 'claude-code-eat)
 
-;; Forward declare variables to avoid compilation warnings
-(defvar eat-terminal)
-(defvar eat-term-name)
-(defvar eat-invisible-cursor-type)
-(declare-function eat-term-send-string "eat")
-(declare-function eat-kill-process "eat")
-(declare-function eat-make "eat")
-(declare-function eat-emacs-mode "eat")
-(declare-function eat-semi-char-mode "eat")
-
-;; Forward declare flycheck functions
+;;;; Forward declrations for flycheck
 (declare-function flycheck-overlay-errors-at "flycheck")
 (declare-function flycheck-error-filename "flycheck")
 (declare-function flycheck-error-line "flycheck")
@@ -400,23 +407,23 @@ Returns the buffer containing the terminal.")
 
 ;; Declare external variables and functions from eat package
 (defvar eat--semi-char-mode)
-(defvar eat-terminal)
 (defvar eat--synchronize-scroll-function)
-(defvar eat-term-name)
 (defvar eat-invisible-cursor-type)
-(declare-function eat-make "eat" (name program &optional startfile &rest switches))
-(declare-function eat-term-send-string "eat" (terminal string))
-(declare-function eat-kill-process "eat" (&optional buffer))
-(declare-function eat-term-reset "eat" (terminal))
-(declare-function eat-term-redisplay "eat" (terminal))
+(defvar eat-term-name)
+(defvar eat-terminal)
+(declare-function eat--adjust-process-window-size "eat" (&rest args))
 (declare-function eat--set-cursor "eat" (terminal &rest args))
-(declare-function eat-term-display-cursor "eat" (terminal))
+(declare-function eat-emacs-mode "eat")
+(declare-function eat-kill-process "eat" (&optional buffer))
+(declare-function eat-make "eat" (name program &optional startfile &rest switches))
+(declare-function eat-semi-char-mode "eat")
 (declare-function eat-term-display-beginning "eat" (terminal))
+(declare-function eat-term-display-cursor "eat" (terminal))
 (declare-function eat-term-live-p "eat" (terminal))
 (declare-function eat-term-parameter "eat" (terminal parameter) t)
-(declare-function eat-emacs-mode "eat" ())
-(declare-function eat-semi-char-mode "eat" ())
-(declare-function eat--adjust-process-window-size "eat" (&rest args))
+(declare-function eat-term-redisplay "eat" (terminal))
+(declare-function eat-term-reset "eat" (terminal))
+(declare-function eat-term-send-string "eat" (terminal string))
 
 ;; Helper to ensure eat is loaded
 (defun claude-code--ensure-eat ()
@@ -575,7 +582,7 @@ BACKEND is the terminal backend type (should be \\='eat)."
        (define-key map (kbd "<return>") "\e\C-m")
        (define-key map (kbd "<S-return>") (kbd "RET")))
       ('super-return-to-send
-       ;; RET enters a line break, s-return sends the command. 
+       ;; RET enters a line break, s-return sends the command.
        (define-key map (kbd "<return>") "\e\C-m")
        (define-key map (kbd "<s-return>") (kbd "RET"))))
 
