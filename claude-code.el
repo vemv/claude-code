@@ -510,7 +510,7 @@ possible, preventing the scrolling up issue when editing other buffers."
 BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--ensure-eat)
   ;; Configure eat-specific settings
-  (setq-local eat-term-name "xterm-256color")
+  (setq-local eat-term-name claude-code-term-name)
   (setq-local eat-enable-directory-tracking nil)
   (setq-local eat-enable-shell-command-history nil)
   (setq-local eat-enable-shell-prompt-annotation nil)
@@ -588,9 +588,10 @@ BACKEND is the terminal backend type (should be \\='eat)."
 
 ;; Declare external variables and functions from vterm package
 (defvar vterm-buffer-name)
-(defvar vterm-shell)
-(defvar vterm-environment)
 (defvar vterm-copy-mode)
+(defvar vterm-environment)
+(defvar vterm-shell)
+(defvar vterm-term-environment-variable)
 (declare-function vterm "vterm" (&optional buffer-name))
 (declare-function vterm--window-adjust-process-window-size "vterm" (process window))
 (declare-function vterm-copy-mode "vterm" (&optional arg))
@@ -669,6 +670,8 @@ BACKEND is the terminal backend type (should be \\='vterm)."
 
 BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
+  ;; set TERM 
+  (setq vterm-term-environment-variable claude-code-term-name)
   ;; Prevent vterm from automatically renaming the buffer
   (setq-local vterm-buffer-name-string nil)
   ;; Set scrollback size if needed
