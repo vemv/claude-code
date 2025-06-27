@@ -130,7 +130,7 @@ When nil, Claude instances will be killed without confirmation."
   :type 'boolean
   :group 'claude-code)
 
-;;;;; Eat terminal specific customizations
+;;;;; Eat terminal customizations
 ;; Eat-specific terminal faces
 (defface claude-code-eat-prompt-annotation-running-face
   '((t :inherit eat-shell-prompt-annotation-running))
@@ -671,14 +671,16 @@ BUFFER is the terminal buffer containing the process to kill."
 
 BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
-  (vterm-copy-mode 1))
+  (vterm-copy-mode 1)
+  (setq-local cursor-type t))
 
 (cl-defmethod claude-code--term-interactive-mode ((backend (eql vterm)))
   "Switch vterm terminal to interactive mode.
 
 BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
-  (vterm-copy-mode -1))
+  (vterm-copy-mode -1)
+  (setq-local cursor-type nil))
 
 (cl-defmethod claude-code--term-in-read-only-p ((backend (eql vterm)))
   "Check if vterm terminal is in read-only mode.
