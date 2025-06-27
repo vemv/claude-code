@@ -85,7 +85,7 @@ command.
 
 In Claude buffers, the ESC key now works as expected - a single press sends an escape character to Claude. This is useful for canceling operations or saying "No" to Claude prompts. You can also use `C-g` as an alternative way to send escape/cancel.
 
-The behavior of the return key and its modifiers can be customized using the `claude-code-newline-keybinding-style` variable. By default, pressing RET sends your message to Claude while M-return (Meta/Alt + Return) inserts a newline. This can be changed to match your preferences - for example, you can configure it so that RET inserts newlines and M-return sends the message, or use Shift-return or Super-return for newlines. See the Customization section for available options.
+The behavior of the return key and its modifiers can be customized using the `claude-code-newline-keybinding-style` variable. By default, pressing `RET` sends your message to Claude while `S-return` (Shift + Return) inserts a newline. This can be changed to match your preferences - for example, you can configure it so that `RET` inserts newlines and `S-return` sends the message, or use `M-return` (Meta/Alt + Return) or `s-return` (Super/Command + Return on macOS) for either action. See the Customization section for available options.
 
 ### Read-Only Mode Toggle
 
@@ -206,11 +206,11 @@ This allows you to have separate Claude conversations for different aspects of y
 
 ;; Configure key binding style for entering newlines and sending messages in Claude buffers
 ;; Available styles:
-;;   'default              - M-return inserts newline, RET sends message (default)
-;;   'newline-on-return    - RET inserts newline, M-return sends message
-;;   'newline-on-shift-return - RET sends message, S-return inserts newline
-;;   'super-return-to-send - RET inserts newline, s-return sends message
-(setq claude-code-newline-keybinding-style 'default)
+;;   'newline-on-shift-return - S-return inserts newline, RET sends message (default)
+;;   'newline-on-alt-return   - M-return inserts newline, RET sends message
+;;   'shift-return-to-send    - RET inserts newline, S-return sends message
+;;   'super-return-to-send    - RET inserts newline, s-return sends message (Command+Return on macOS)
+(setq claude-code-newline-keybinding-style 'newline-on-shift-return)
 
 ;; Enable or disable notifications when Claude finishes and awaits input (default is t)
 (setq claude-code-enable-notifications t)

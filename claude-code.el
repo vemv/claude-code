@@ -69,17 +69,21 @@ These are passed as SWITCHES parameters to `eat-make`."
   :type '(repeat string)
   :group 'claude-code)
 
-(defcustom claude-code-newline-keybinding-style 'default
+(defcustom claude-code-newline-keybinding-style 'newline-on-shift-return
   "Key binding style for entering newlines and sending messages.
 
 This controls how the return key and its modifiers behave in Claude buffers:
-- \\='default: M-return inserts newline, RET sends message
-- \\='newline-on-return: RET inserts newline, M-return sends message
-- \\='newline-on-shift-return: RET sends message, S-return inserts newline
-- \\='super-return-to-send: RET inserts newline, s-return sends message"
-  :type '(choice (const :tag "Default (M-return for newline, RET to send)" default)
-                 (const :tag "Newline on return (RET for newline, M-return to send)" newline-on-return)
-                 (const :tag "Shift-return (RET to send, S-return for newline)" newline-on-shift-return)
+- \\='newline-on-shift-return: S-return enters a line break, RET sends the
+  command (default)
+- \\='newline-on-alt-return: M-return enters a line break, RET sends the command
+- \\='shift-return-to-send: RET enters a line break, S-return sends the command
+- \\='super-return-to-send: RET enters a line break, s-return sends the command
+
+`\"S\"' is the shift key.
+`\"s\"' is the hyper key, which is the COMMAND key on macOS."
+  :type '(choice (const :tag "Newline on shift-return (s-return for newline, RET to send)" newline-on-shift-return)
+                 (const :tag "Newline on alt-return (M-return for newline, RET to send)" newline-on-alt0return)
+                 (const :tag "Shift-return to send (RET for newline, S-return to send)" shift-return-to-send)
                  (const :tag "Super-return (RET for newline, s-return to send)" super-return-to-send))
   :group 'claude-code)
 
@@ -554,24 +558,25 @@ BACKEND is the terminal backend type (should be \\='eat)."
     (set-keymap-parent map (current-local-map))
 
     ;; C-g for escape
-    (define-key map (kbd "C-g") "")
+    (define-key map (kbd "C-g") #'claude-code-send-escape)
     
     ;; Configure key bindings based on user preference
     (pcase claude-code-newline-keybinding-style
-      ('default
-       ;; Default: M-return enters a line break, RET sends the command
-       (define-key map (kbd "<return>") (kbd "RET"))
-       (define-key map (kbd "<M-return>") "\e\C-m"))
-      ('newline-on-return
-       ;; Newline on return: RET enters a line break, M-return sends the command
-       (define-key map (kbd "<return>") "\e\C-m")
-       (define-key map (kbd "<M-return>") (kbd "RET")))
       ('newline-on-shift-return
-       ;; Shift-return: RET sends the command, S-return enters a line break
+       ;; S-return enters a line break, RET sends the command
        (define-key map (kbd "<return>") (kbd "RET"))
        (define-key map (kbd "<S-return>") "\e\C-m"))
+      ('newline-on-alt-return
+       ;; M-return enters a line break, RET sends the command
+       (define-key map (kbd "<return>") (kbd "RET"))
+       (define-key map (kbd "<M-return>") "\e\C-m"))
+      ('shift-return-to-send
+       ;; RET enters a line break, S-return sends the command
+       (define-key map (kbd "<return>") "\e\C-m")
+       (define-key map (kbd "<S-return>") (kbd "RET")))
       ('super-return-to-send
-       ;; Super-return: RET enters a line break, s-return sends the command
+       ;; RET enters a line break, s-return sends the command. "s" is
+       ;; the hyper key, the COMMAND key on macOS.
        (define-key map (kbd "<return>") "\e\C-m")
        (define-key map (kbd "<s-return>") (kbd "RET"))))
 
@@ -1064,8 +1069,8 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (advice-add (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) :around #'claude-code--adjust-window-size-advice)
 
       ;; Setup our custom key bindings
-      (claude-code--setup-claude-buffer-keymap)
-
+      (claude-code--term-setup-keymap claude-code-terminal-backend)
+      
       ;; Customize terminal faces
       (claude-code--term-customize-faces claude-code-terminal-backend)
 
@@ -1217,43 +1222,6 @@ Returns a string with the errors or a message if no errors found."
         "No help string available at point")))
    ;; No errors found by any method
    (t "No errors at point")))
-
-(defun claude-code--setup-claude-buffer-keymap ()
-  "Set up the local keymap for Claude Code buffers."
-  (claude-code--term-setup-keymap claude-code-terminal-backend))
-
-;; Removed old keymap function - now using backend-specific implementation
-
-(defun claude-code--pulse-modeline-removed ()
-  "Set up the local keymap for Claude Code buffers."
-  (let ((map (make-sparse-keymap)))
-    ;; Inherit parent eat keymap
-    (set-keymap-parent map (current-local-map))
-
-    ;; C-g for escape
-    (define-key map (kbd "C-g") "")
-    
-    ;; Configure key bindings based on user preference
-    (pcase claude-code-newline-keybinding-style
-      ('default
-       ;; Default: M-return enters a line break, RET sends the command
-       (define-key map (kbd "<return>") (kbd "RET"))
-       (define-key map (kbd "<M-return>") "\e\C-m"))
-      ('newline-on-return
-       ;; Newline on return: RET enters a line break, M-return sends the command
-       (define-key map (kbd "<return>") "\e\C-m")
-       (define-key map (kbd "<M-return>") (kbd "RET")))
-      ('newline-on-shift-return
-       ;; Shift-return: RET sends the command, S-return enters a line break
-       (define-key map (kbd "<return>") (kbd "RET"))
-       (define-key map (kbd "<S-return>") "\e\C-m"))
-      ('super-return-to-send
-       ;; Super-return: RET enters a line break, s-return sends the command
-       (define-key map (kbd "<return>") "\e\C-m")
-       (define-key map (kbd "<s-return>") (kbd "RET"))))
-
-    (use-local-map map)))
-
 
 (defun claude-code--pulse-modeline ()
   "Pulse the modeline to provide visual notification."
