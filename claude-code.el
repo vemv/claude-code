@@ -385,8 +385,8 @@ Returns the buffer containing the terminal.")
 (cl-defgeneric claude-code--term-setup-keymap (backend)
   "Set up the local keymap for Claude Code buffers using BACKEND.")
 
-(cl-defgeneric claude-code--term-cleanup (backend)
-  "Perform backend-specific cleanup using BACKEND.")
+(cl-defgeneric claude-code--term-get-adjust-process-window-size-fn (backend)
+  "Get the BACKEND specific function that adjusts window size.")
 
 ;;;;; eat backend implementations
 
@@ -519,8 +519,6 @@ BACKEND is the terminal backend type (should be \\='eat)."
   ;; Configure bell handler - ensure eat-terminal exists
   (when (bound-and-true-p eat-terminal)
     (eval '(setf (eat-term-parameter eat-terminal 'ring-bell-function) #'claude-code--notify)))
-  ;; Set up eat-specific window width tracking
-  (claude-code--setup-eat-window-tracking)
 
   ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
   (sleep-for claude-code-startup-delay))
@@ -575,58 +573,12 @@ BACKEND is the terminal backend type (should be \\='eat)."
 
     (use-local-map map)))
 
-;; Eat-specific window tracking variables and functions
-(defvar claude-code--eat-window-widths nil
-  "Hash table mapping windows to their last known widths for eat terminals.")
+(cl-defgeneric claude-code--term-get-adjust-process-window-size-fn (backend)
+  "Get the BACKEND specific function that adjusts window size.")
 
-(defun claude-code--eat-window-size-advice (orig-fun &rest args)
-  "Advice for `eat--adjust-process-window-size' to only signal on width change.
-
-Returns the size returned by ORIG-FUN only when the width of any Claude
-window has changed, not when only the height has changed. This prevents
-unnecessary terminal reflows when only vertical space changes.
-
-ARGS is passed to ORIG-FUN unchanged."
-  (when (and eat-terminal (eat-term-live-p eat-terminal))
-    ;; Call the original function first
-    (let ((result (apply orig-fun args)))
-      ;; Check all windows for Claude buffers
-      (let ((width-changed nil))
-        (dolist (window (window-list))
-          (let ((buffer (window-buffer window)))
-            (when (and buffer (claude-code--buffer-p buffer))
-              (let ((current-width (window-width window))
-                    (stored-width (gethash window claude-code--eat-window-widths)))
-                ;; Check if this is a new window or if width changed
-                (when (or (not stored-width) (/= current-width stored-width))
-                  (setq width-changed t)
-                  ;; Update stored width
-                  (puthash window current-width claude-code--eat-window-widths))))))
-        ;; Return result only if a Claude window width changed,
-        ;; otherwise nil. Nil means do not send a window size
-        ;; changed event to the Claude process.
-        (if width-changed result nil)))))
-
-(defun claude-code--setup-eat-window-tracking ()
-  "Set up eat-specific window width tracking."
-  ;; Initialize the window widths hash table
-  (setq claude-code--eat-window-widths (make-hash-table :test 'eq :weakness 'key))
-  ;; Add the advice
-  (advice-add 'eat--adjust-process-window-size :around #'claude-code--eat-window-size-advice))
-
-(defun claude-code--cleanup-eat-window-tracking ()
-  "Clean up eat-specific window width tracking."
-  ;; Remove the advice
-  (advice-remove 'eat--adjust-process-window-size #'claude-code--eat-window-size-advice)
-  ;; Clean the hash table
-  (when claude-code--eat-window-widths
-    (clrhash claude-code--eat-window-widths)))
-
-(cl-defmethod claude-code--term-cleanup ((backend (eql eat)))
-  "Perform eat-specific cleanup.
-
-BACKEND is the terminal backend type (should be \\='eat)."
-  (claude-code--cleanup-eat-window-tracking))
+(cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((backend (eql eat)))
+  "Get the BACKEND specific function that adjusts window size."
+  #'eat--adjust-process-window-size)
 
 ;;;;; vterm backend implementations
 
@@ -640,12 +592,6 @@ BACKEND is the terminal backend type (should be \\='eat)."
 (declare-function vterm-send-string "vterm" (string &optional paste-p))
 
 ;; Helper to ensure vterm is loaded
-(defun claude-code--ensure-vterm ()
-  "Ensure vterm package is loaded."
-  (unless (featurep 'vterm)
-    (unless (require 'vterm nil t)
-      (error "The vterm package is required for vterm terminal backend. Please install it"))))
-
 (cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
   "Create a vterm terminal.
 
@@ -654,7 +600,6 @@ BUFFER-NAME is the name for the new terminal buffer.
 PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
   (claude-code--ensure-vterm)
-  ;; Store the desired buffer name
   (let* ((vterm-shell (if switches
                           (concat program " " (mapconcat #'identity switches " "))
                         program))
@@ -663,14 +608,15 @@ SWITCHES are optional command-line arguments for PROGRAM."
                               "TERM_PROGRAM=emacs"
                               "FORCE_CODE_TERMINAL=true")
                              vterm-environment))
-         ;; Store current buffer name before vterm changes it
-         (original-buffer-name (buffer-name)))
-    ;; Create vterm buffer
-    (vterm)
-    ;; vterm-mode may have changed the buffer name, restore it
-    (rename-buffer original-buffer-name t)
-    ;; Return the current buffer
-    (current-buffer)))
+         (vterm-buffer-name buffer-name))
+    ;; Create vterm buffer and process
+    (vterm)))
+
+(defun claude-code--ensure-vterm ()
+  "Ensure vterm package is loaded."
+  (unless (featurep 'vterm)
+    (unless (require 'vterm nil t)
+      (error "The vterm package is required for vterm terminal backend. Please install it"))))
 
 (cl-defmethod claude-code--term-send-string ((backend (eql vterm)) string)
   "Send STRING to vterm terminal.
@@ -779,12 +725,9 @@ BACKEND is the terminal backend type (should be \\='vterm)."
   ;; not implemented yet
   )
 
-(cl-defmethod claude-code--term-cleanup ((backend (eql vterm)))
-  "Perform vterm-specific cleanup.
-
-BACKEND is the terminal backend type (should be \\='vterm)."
-  ;; No specific cleanup needed for vterm
-  nil)
+(cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((backend (eql vterm)))
+  "Get the BACKEND specific function that adjusts window size."
+  #'vterm--window-adjust-process-window-size)
 
 ;;;; Private util functions
 (defmacro claude-code--with-buffer (&rest body)
@@ -1004,7 +947,13 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
   "Kill a Claude BUFFER by cleaning up hooks and processes."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (claude-code--term-cleanup claude-code-terminal-backend)
+      ;; Remove the adjust window size advice
+      (advice-remove 'eat--adjust-process-window-size #'claude-code--eat-window-size-advice)
+      ;; Clean the window widths hash table
+      (when claude-code--window-widths
+        (clrhash claude-code--window-widths))
+  
+      ;; Kill the process
       (claude-code--term-kill-process claude-code-terminal-backend buffer))))
 
 (defun claude-code--cleanup-directory-mapping ()
@@ -1092,6 +1041,12 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Configure terminal with backend-specific settings
       (claude-code--term-configure claude-code-terminal-backend)
 
+      ;; Initialize the window widths hash table
+      (setq claude-code--window-widths (make-hash-table :test 'eq :weakness 'key))
+
+      ;; Set up window width tracking
+      (advice-add (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) :around #'claude-code--eat-window-size-advice)
+      
       ;; Setup our custom key bindings
       (claude-code--setup-claude-buffer-keymap)
 
@@ -1331,6 +1286,38 @@ TERMINAL is the eat terminal parameter (not used)."
     (let ((match (re-search-backward "[^[:space:]][[:space:]]+│$" nil t)))
       (when match
         (+ match 1)))))
+
+;; window width tracking
+(defvar claude-code--window-widths nil
+  "Hash table mapping windows to their last known widths for eat terminals.")
+
+(defun claude-code--adjust-window-size-advice (orig-fun &rest args)
+  "Advice for `eat--adjust-process-window-size' to only signal on width change.
+
+Returns the size returned by ORIG-FUN only when the width of any Claude
+window has changed, not when only the height has changed. This prevents
+unnecessary terminal reflows when only vertical space changes.
+
+ARGS is passed to ORIG-FUN unchanged."
+  (let ((result (apply orig-fun args)))
+    ;; Check all windows for Claude buffers
+    (let ((width-changed nil))
+      (dolist (window (window-list))
+        (let ((buffer (window-buffer window)))
+          (when (and buffer (claude-code--buffer-p buffer))
+            (let ((current-width (window-width window))
+                  (stored-width (gethash window claude-code--window-widths)))
+              ;; Check if this is a new window or if width changed
+              (when (or (not stored-width) (/= current-width stored-width))
+                (setq width-changed t)
+                ;; Update stored width
+                (puthash window current-width claude-code--window-widths))))))
+      ;; Return result only if a Claude window width changed and
+      ;; we're not in read-only mode. otherwise nil. Nil means do
+      ;; not send a window size changed event to the Claude process.
+      (if (and width-changed (not (claude-code--term-in-read-only-p 'eat)))
+          result
+        nil))))
 
 ;;;; Interactive Commands
 
