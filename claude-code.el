@@ -86,6 +86,7 @@ This controls how the return key and its modifiers behave in Claude buffers:
                  (const :tag "Shift-return to send (RET for newline, S-return to send)" shift-return-to-send)
                  (const :tag "Super-return to send (RET for newline, s-return to send)" super-return-to-send))
   :group 'claude-code)
+
 (defcustom claude-code-newline-keybinding-style 'newline-on-shift-return
   "Key binding style for entering newlines and sending messages.
 
