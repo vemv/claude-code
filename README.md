@@ -18,6 +18,35 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 - Supports eat and vterm for the terminal backend
 - Customizable key bindings and appearance settings
 
+## Installation {#installation}
+
+### Prerequisites
+
+- Emacs 30.0 or higher
+- [Claude Code CLI](https://github.com/anthropics/claude-code) installed and configured
+- Required Emacs packages: transient (0.4.0+), eat (0.9.2+)
+
+### Using builtin use-package (Emacs 30+)
+
+```elisp
+(use-package claude-code :ensure t
+  :vc (:url "https://github.com/stevemolitor/claude-code.el" :rev :newest)
+  :config (claude-code-mode)
+  :bind-keymap ("C-c c" . claude-code-command-map)) ;; or your preferred key
+```
+
+### Using straight.el
+
+```elisp
+(use-package claude-code
+  :straight (:type git :host github :repo "stevemolitor/claude-code.el" :branch "main"
+                   :files ("*.el" (:exclude "images/*")))
+  :bind-keymap
+  ("C-c c" . claude-code-command-map)
+  :config
+  (claude-code-mode))
+```
+
 ## Basic Usage
 
 ### Setting Prefix Key
@@ -123,9 +152,15 @@ This allows you to have separate Claude conversations for different aspects of y
 
 claude-code.el is designed to support using Claude Code in Emacs using the minibuffer and regular Emacs buffers, with normal keybindings and full Emacs editing facilities. However, claude-code.el also adds a few niceties for working in the Claude Code terminal buffer:
 
-You can type `C-g` as an alternative to escape. Also it supports several options for entering newlines in the Claude Code session:
+You can type `C-g` as an alternative to escape. Also claude-code.el supports several options for
+entering newlines in the Claude Code session:
 
-TODO
+- **Default (newline-on-shift-return)**: Press `Shift-Return` to insert a newline, `Return` to send your message
+- **Alt-return style**: Press `Alt-Return` to insert a newline, `Return` to send
+- **Shift-return to send**: Press `Return` to insert a newline, `Shift-Return` to send
+- **Super-return to send**: Press `Return` to insert a newline, `Command-Return` (macOS) to send
+
+You can change this behavior by customizing `claude-code-newline-keybinding-style` (see [Customization](#customization)).
 
 ### Command Reference
 
@@ -155,7 +190,77 @@ TODO
 - `claude-code-send-3` (`C-c c 3`) - Send "3" to Claude (useful for selecting the third option when Claude presents a numbered menu)
 - `claude-code-cycle-mode` (`C-c c TAB`) - Send Shift-Tab to Claude to cycle between default mode, auto-accept edits mode, and plan mode
 
-## Customization
+## Desktop Notifications
+
+claude-code.el notifies you when Claude finishes processing and is waiting for input. By default, it displays a message in the minibuffer and pulses the modeline for visual feedback.
+
+### macOS Native Notifications
+
+To use macOS native notifications with sound, add this to your configuration:
+
+```elisp
+(defun my-claude-notify (title message)
+  "Display a macOS notification with sound."
+  (call-process "osascript" nil nil nil
+                "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
+                             message title)))
+
+(setq claude-code-notification-function #'my-claude-notify)
+```
+
+This will display a system notification with a "Glass" sound effect when Claude is ready. You can change the sound name to any system sound (e.g., "Ping", "Hero", "Morse", etc.) or remove the `sound name` part for silent notifications.
+
+### Linux Native Notifications
+
+For Linux desktop notifications, you can use `notify-send` (GNOME/Unity) or `kdialog` (KDE):
+
+```elisp
+;; For GNOME/Unity desktops
+(defun my-claude-notify (title message)
+  "Display a Linux notification using notify-send."
+  (if (executable-find "notify-send")
+      (call-process "notify-send" nil nil nil title message)
+    (message "%s: %s" title message)))
+
+(setq claude-code-notification-function #'my-claude-notify)
+```
+
+To add sound on Linux:
+
+```elisp
+(defun my-claude-notify-with-sound (title message)
+  "Display a Linux notification with sound."
+  (when (executable-find "notify-send")
+    (call-process "notify-send" nil nil nil title message))
+  ;; Play sound if paplay is available
+  (when (executable-find "paplay")
+    (call-process "paplay" nil nil nil "/usr/share/sounds/freedesktop/stereo/message.oga")))
+
+(setq claude-code-notification-function #'my-claude-notify-with-sound)
+```
+
+### Windows Native Notifications
+
+For Windows, you can use PowerShell to create toast notifications:
+
+```elisp
+(defun my-claude-notify (title message)
+  "Display a Windows notification using PowerShell."
+  (call-process "powershell" nil nil nil
+                "-NoProfile" "-Command"
+                (concat "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; "
+                        "$template = '<toast><visual><binding template=\"ToastGeneric\"><text>" title "</text><text>" message "</text></binding></visual></toast>'; "
+                        "$xml = New-Object Windows.Data.Xml.Dom.XmlDocument; "
+                        "$xml.LoadXml($template); "
+                        "$toast = [Windows.UI.Notifications.ToastNotification]::new($xml); "
+                        "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Emacs').Show($toast)")))
+
+(setq claude-code-notification-function #'my-claude-notify)
+```
+
+*Note: Linux and Windows examples are untested. Feedback and improvements are welcome!*
+
+## Customization {#customization}
 
 ```elisp
 ;; Set your key binding for the command map
