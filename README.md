@@ -24,7 +24,8 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 
 - Emacs 30.0 or higher
 - [Claude Code CLI](https://github.com/anthropics/claude-code) installed and configured
-- Required Emacs packages: transient (0.4.0+), eat (0.9.2+)
+- Required: transient (0.7.5+)
+- Optional: eat (0.9.2+) for eat backend, vterm for vterm backend
 
 ### Using builtin use-package (Emacs 30+)
 
@@ -54,7 +55,7 @@ You need to set your own key binding for the Claude Code command map, as describ
 
 ### Picking Eat or Vterm
 
-By default claude-code.el using the `eat` backend. If you prefer vterm customize
+By default claude-code.el uses the `eat` backend. If you prefer vterm customize
 `claude-code-terminal-backend`:
 
 ```elisp
@@ -84,7 +85,7 @@ To kill the Claude process and close its window use `claude-code-kill` (`C-c c k
 
 ### Sending Commands to Claude
 
-Once Claude has started, you can switch the the Claude buffer and start entering prompts.
+Once Claude has started, you can switch to the Claude buffer and start entering prompts.
 Alternately, you can send prompts to Claude using the minibuffer via `claude-code-send-command`
 (`C-c c s`). `claude-code-send-command-with-context` (`C-c c x`) will also send the current file name and line
 number to Claude. This is useful for asking things like "what does this code do?", or "fix the bug
@@ -328,7 +329,7 @@ You can control how the Claude Code window appears using Emacs' `display-buffer-
                  '("^\\*claude"
                    (display-buffer-in-side-window)
                    (side . right)
-                   (window-width . ,width)
+                   (window-width . 90)
                    (window-parameters . ((no-delete-other-windows . t)))))
 ```
 
@@ -409,7 +410,7 @@ To reduce flickering in the Claude buffer on window configuration changes, you c
                           eat-maximum-latency 0.1)))
 ```
 
-_Note_: Recent changes to claude-code.el have fixed flickering issues, making customization of these latency values less necessary. 
+*Note*: Recent changes to claude-code.el have fixed flickering issues, making customization of these latency values less necessary. 
 
 ## Demo
 

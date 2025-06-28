@@ -87,24 +87,6 @@ This controls how the return key and its modifiers behave in Claude buffers:
                  (const :tag "Super-return to send (RET for newline, s-return to send)" super-return-to-send))
   :group 'claude-code)
 
-(defcustom claude-code-newline-keybinding-style 'newline-on-shift-return
-  "Key binding style for entering newlines and sending messages.
-
-This controls how the return key and its modifiers behave in Claude buffers:
-- \\='newline-on-shift-return: S-return enters a line break, RET sends the
-  command (default)
-- \\='newline-on-alt-return: M-return enters a line break, RET sends the command
-- \\='shift-return-to-send: RET enters a line break, S-return sends the command
-- \\='super-return-to-send: RET enters a line break, s-return sends the command
-
-`\"S\"' is the shift key.
-`\"s\"' is the hyper key, which is the COMMAND key on macOS."
-  :type '(choice (const :tag "Newline on shift-return (s-return for newline, RET to send)" newline-on-shift-return)
-                 (const :tag "Newline on alt-return (M-return for newline, RET to send)" newline-on-alt-return)
-                 (const :tag "Shift-return to send (RET for newline, S-return to send)" shift-return-to-send)
-                 (const :tag "Super-return to send (RET for newline, s-return to send)" super-return-to-send))
-  :group 'claude-code)
-
 (defcustom claude-code-enable-notifications t
   "Whether to show notifications when Claude finishes and awaits input."
   :type 'boolean
@@ -366,10 +348,9 @@ for each directory across multiple invocations.")
 
 (defcustom claude-code-terminal-backend 'eat
   "Terminal backend to use for Claude Code.
-Currently only \\='eat is supported.  \\='vterm support is planned
-for future versions."
+Choose between \\='eat (default) and \\='vterm terminal emulators."
   :type '(radio (const :tag "Eat terminal emulator" eat)
-                (const :tag "Vterm (not yet implemented)" vterm))
+                (const :tag "Vterm terminal emulator" vterm))
   :group 'claude-code)
 
 ;;;;; Generic function definitions
@@ -1283,6 +1264,9 @@ TERMINAL is the eat terminal parameter (not used)."
              "Claude Ready"
              "Waiting for your response")))
 
+(defvar claude-code--vterm-debug-bells nil
+  "When non-nil, log bell detection to *claude-vterm-bell-debug* buffer.")
+
 (defun claude-code--vterm-bell-detector (orig-fun process input)
   "Detect bell characters in vterm output and trigger notifications.
 
@@ -1290,7 +1274,35 @@ ORIG-FUN is the original vterm--filter function.
 PROCESS is the vterm process.
 INPUT is the terminal output string."
   (when (and (string-match-p "\007" input)
-             (buffer-local-value 'claude-code-mode (process-buffer process)))
+             (buffer-local-value 'claude-code-mode (process-buffer process))
+             ;; Ignore bells in OSC sequences (terminal title updates)
+             (not (string-match-p "]0;.*\007" input)))
+    ;; Log if debugging is enabled
+    (when claude-code--vterm-debug-bells
+      (let ((debug-buffer (get-buffer-create "*claude-vterm-bell-debug*")))
+        (with-current-buffer debug-buffer
+          (goto-char (point-max))
+          (insert (format "\n[%s] Bell detected!\n" (format-time-string "%Y-%m-%d %H:%M:%S.%3N")))
+          (insert (format "Raw input length: %d\n" (length input)))
+          (insert "Context (50 chars before/after bell):\n")
+          (let ((bell-pos (string-match "\007" input)))
+            (when bell-pos
+              (let ((start (max 0 (- bell-pos 50)))
+                    (end (min (length input) (+ bell-pos 51))))
+                (insert (format "  Before: %S\n" (substring input start bell-pos)))
+                (insert (format "  Bell at position: %d\n" bell-pos))
+                (insert (format "  After: %S\n" (substring input (1+ bell-pos) end))))))
+          (insert "Hex dump around bell:\n")
+          (let ((bell-pos (string-match "\007" input)))
+            (when bell-pos
+              (let ((start (max 0 (- bell-pos 20)))
+                    (end (min (length input) (+ bell-pos 21))))
+                (insert "  ")
+                (dotimes (i (- end start))
+                  (insert (format "%02x " (aref input (+ start i))))
+                  (when (= (+ start i) bell-pos)
+                    (insert "<BELL> ")))
+                (insert "\n")))))))
     (claude-code--notify nil))
   (funcall orig-fun process input))
 
@@ -1606,6 +1618,18 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (claude-code--with-buffer
    (claude-code--term-interactive-mode claude-code-terminal-backend)
    (message "Claude read-only disabled")))
+
+;;;###autoload
+(defun claude-code-toggle-vterm-bell-debug ()
+  "Toggle vterm bell debugging.
+
+When enabled, logs all bell character detections to the
+*claude-vterm-bell-debug* buffer with context and hex dumps."
+  (interactive)
+  (setq claude-code--vterm-debug-bells (not claude-code--vterm-debug-bells))
+  (message "Vterm bell debugging %s" (if claude-code--vterm-debug-bells "enabled" "disabled"))
+  (when claude-code--vterm-debug-bells
+    (pop-to-buffer (get-buffer-create "*claude-vterm-bell-debug*"))))
 
 ;;;###autoload
 (defun claude-code-toggle-read-only-mode ()
