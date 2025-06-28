@@ -1264,9 +1264,6 @@ TERMINAL is the eat terminal parameter (not used)."
              "Claude Ready"
              "Waiting for your response")))
 
-(defvar claude-code--vterm-debug-bells nil
-  "When non-nil, log bell detection to *claude-vterm-bell-debug* buffer.")
-
 (defun claude-code--vterm-bell-detector (orig-fun process input)
   "Detect bell characters in vterm output and trigger notifications.
 
@@ -1277,32 +1274,6 @@ INPUT is the terminal output string."
              (buffer-local-value 'claude-code-mode (process-buffer process))
              ;; Ignore bells in OSC sequences (terminal title updates)
              (not (string-match-p "]0;.*\007" input)))
-    ;; Log if debugging is enabled
-    (when claude-code--vterm-debug-bells
-      (let ((debug-buffer (get-buffer-create "*claude-vterm-bell-debug*")))
-        (with-current-buffer debug-buffer
-          (goto-char (point-max))
-          (insert (format "\n[%s] Bell detected!\n" (format-time-string "%Y-%m-%d %H:%M:%S.%3N")))
-          (insert (format "Raw input length: %d\n" (length input)))
-          (insert "Context (50 chars before/after bell):\n")
-          (let ((bell-pos (string-match "\007" input)))
-            (when bell-pos
-              (let ((start (max 0 (- bell-pos 50)))
-                    (end (min (length input) (+ bell-pos 51))))
-                (insert (format "  Before: %S\n" (substring input start bell-pos)))
-                (insert (format "  Bell at position: %d\n" bell-pos))
-                (insert (format "  After: %S\n" (substring input (1+ bell-pos) end))))))
-          (insert "Hex dump around bell:\n")
-          (let ((bell-pos (string-match "\007" input)))
-            (when bell-pos
-              (let ((start (max 0 (- bell-pos 20)))
-                    (end (min (length input) (+ bell-pos 21))))
-                (insert "  ")
-                (dotimes (i (- end start))
-                  (insert (format "%02x " (aref input (+ start i))))
-                  (when (= (+ start i) bell-pos)
-                    (insert "<BELL> ")))
-                (insert "\n")))))))
     (claude-code--notify nil))
   (funcall orig-fun process input))
 
@@ -1618,18 +1589,6 @@ Use `claude-code-exit-read-only-mode' to switch back to normal mode."
   (claude-code--with-buffer
    (claude-code--term-interactive-mode claude-code-terminal-backend)
    (message "Claude read-only disabled")))
-
-;;;###autoload
-(defun claude-code-toggle-vterm-bell-debug ()
-  "Toggle vterm bell debugging.
-
-When enabled, logs all bell character detections to the
-*claude-vterm-bell-debug* buffer with context and hex dumps."
-  (interactive)
-  (setq claude-code--vterm-debug-bells (not claude-code--vterm-debug-bells))
-  (message "Vterm bell debugging %s" (if claude-code--vterm-debug-bells "enabled" "disabled"))
-  (when claude-code--vterm-debug-bells
-    (pop-to-buffer (get-buffer-create "*claude-vterm-bell-debug*"))))
 
 ;;;###autoload
 (defun claude-code-toggle-read-only-mode ()
