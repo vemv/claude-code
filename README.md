@@ -18,38 +18,116 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 - Supports eat and vterm for the terminal backend
 - Customizable key bindings and appearance settings
 
-## Installation
+## Basic Usage
 
-### Prerequisites
+### Setting Prefix Key
+You need to set your own key binding for the Claude Code command map, as described in the [Installation](#installation) section. The examples in this README use `C-c c` as the prefix key.
 
-- Emacs 30.0 or higher
-- [Claude Code CLI](https://github.com/anthropics/claude-code) installed and configured
-- Required Emacs packages: transient (0.4.0+), eat (0.9.2+)
+### Picking Eat or Vterm
 
-### Using builtin use-package (Emacs 30+)
-
-```elisp
-(use-package claude-code :ensure t
-  :vc (:url "https://github.com/stevemolitor/claude-code.el" :rev :newest)
-  :config (claude-code-mode)
-  :bind-keymap ("C-c c" . claude-code-command-map)) ;; or your preferred key
-```
-
-### Using straight.el
+By default claude-code.el using the `eat` backend. If you prefer vterm customize
+`claude-code-terminal-backend`:
 
 ```elisp
-(use-package claude-code
-  :straight (:type git :host github :repo "stevemolitor/claude-code.el" :branch "main"
-                   :files ("*.el" (:exclude "demo.gif")))
-  :bind-keymap
-  ("C-c c" . claude-code-command-map)
-  :config
-  (claude-code-mode))
+(setq claude-code-terminal-backend 'vterm')
 ```
 
-## Usage
+### Transient Menu
 
-You need to set your own key binding for the Claude Code command map. The examples in this README use `C-c c` as the prefix key.
+You can see a menu of the important commands by invoking the transient, `claude-code-transient` (`C-c m`):
+
+![](./transient.png)
+
+### Starting and Stopping Claude
+
+To start Claude, run `claude-code` (`C-c c`). This will start a new Claude instance in the root
+project directory of the buffer file, or the current directory if outside of a project.
+Claude-code.el uses Emacs built-in
+[project.el](https://www.gnu.org/software/emacs/manual/html_node/emacs/Projects.html) which works
+with most version control systems.
+
+To start Claude in a specific directory use `claude-code-start-in-directory` (`C-c d`). It will
+prompt you for the directory.
+
+The `claude-code-continue` command will continue the previous conversation, and `claude-code-resume` will let you pick 
+
+To kill the Claude process and close its window use `claude-code-kill` (`C-c d`).
+
+### Sending Commands to Claude
+
+Once Claude has started, you can switch the the Claude buffer and start entering prompts.
+Alternately, you can send prompts to Claude using the minibuffer via `claude-code-send-command`
+(`C-c s`). `claude-code-send-command-with-context` will also send the current file name and line
+number to Claude. This is useful for asking things like "what does this code do?", or "fix the bug
+in this code".
+
+Use the `claude-code-send-region` (`C-c r`) command to send the selected region to Claude, or the entire buffer if no region is selected. This command is useful for writing a prompt in a regular Emacs buffer and sending it to Claude. With a single prefix arg (`C-u C-c r`) it will prompt for extra context before sending the region to Claude.
+
+If you put your cursor over a flymake or flycheck error, you can ask Claude to fix it via `claude-code-fix-error-at-point` (`C-c e`).
+
+To show and hide the Claude buffer use `claude-code-toggle` (`C-c t`).  To jump to the Claude buffer use `claude-code-switch-to-buffer` (`C-c b`). This will open the buffer if hidden.
+
+### Managing Claude Windows
+
+The `claude-code-toggle` (`C-c t`) will show and hide the Claude window. Use the `claude-code-switch-to-buffer` (`C-c t`) command to switch to the Claude window even if it is hidden. 
+
+To enter read-only mode in the Claude buffer use `claude-code-toggle-read-only-mode` (`C-c z`). In this mode you can select and copy text, and use regular Emacs keybindings. To exit read-only mode invoke `claude-code-toggle-read-only-mode` again.
+
+### Quick Responses
+
+Sometimes you want to send a quick response to Claude without switching to the Claude buffer. The following commands let you answer a query from Claude without leaving your current editing buffer:
+
+- `claude-code-send-return` (`C-c y`) - send the return or enter key to Claude, commonly used to respond with "Yes" to Claude queries.
+- `claude-code-send-escape` (`C-c n`) - send the escape key, to say "No" to Claude or to cancel a running Claude action
+- `claude-code-send-1` (`C-c 1`) - send "1" to Claude, to choose option "1" in response to a Claude query.
+- `claude-code-send-2` (`C-c 2`) - send "2" to Claude
+- `claude-code-send-1` (`C-c 3`) - send "3" to Claude
+
+## Working with Multiple Claude Instances
+
+`claude-code.el` supports running multiple Claude instances across different projects and directories. Each Claude instance is associated with a specific directory (project root, file directory, or current directory).
+
+#### Instance Management
+
+- When you start Claude with `claude-code`, it creates an instance for the current directory
+- If a Claude instance already exists for the directory, you'll be prompted to name the new instance (e.g., "tests", "docs")
+- You can also use `claude-code-new-instance` to explicitly create a new instance with a custom name
+- Buffer names follow the format:
+  - `*claude:/path/to/directory*` for the default instance
+  - `*claude:/path/to/directory:instance-name*` for named instances (e.g., `*claude:/home/user/project:tests*`)
+- If you're in a directory without a Claude instance but have instances running in other directories, you'll be prompted to select one
+- Your selection is remembered for that directory, so you won't be prompted again
+- To start a new instance instead of selecting an existing one, cancel the prompt with `C-g`
+
+### Instance Selection
+
+Commands that operate on an instance (`claude-send-command`, `claude-code-switch-to-buffer`, `claude-code-kill`, etc.) will prompt you for the Claude instance if there is more than one instance associated with the current buffer's project.
+
+If the buffer file is not associated with a running Claude instance, you can select an instance running in a different project. This is useful when you want Claude to analyze dependent projects or files that you have checked out in sibling directories.
+
+Claude-code.el remembers which buffers are associated with which Claude instances, so you won't be repeatedly prompted. This association also helps claude-code.el "do the right thing" when killing a Claude process and deleting its associated buffer.
+
+### Multiple Instances Per Directory
+
+You can run multiple Claude instances for the same directory to support different workflows:
+
+- The first instance in a directory is the "default" instance
+- Additional instances require a name when created (e.g., "tests", "docs", "refactor")
+- When multiple instances exist for a directory, commands that interact with Claude will prompt you to select which instance to use
+- Use `C-u claude-code-switch-to-buffer` to see all Claude instances across all directories (not just the current directory)
+- Use `claude-code-select-buffer` as a dedicated command to always show all Claude instances across all directories
+
+This allows you to have separate Claude conversations for different aspects of your work within the same project, such as one instance for writing code and another for writing tests.
+
+## Working in the Claude Buffer
+
+claude-code.el is designed to support using Claude Code in Emacs using the minibuffer and regular Emacs buffers, with normal keybindings and full Emacs editing facilities. However, claude-code.el also adds a few niceties for working in the Claude Code terminal buffer:
+
+You can type `C-g` as an alternative to escape. Also it supports several options for entering newlines in the Claude Code session:
+
+TODO
+
+### Command Reference
 
 ### Basic Commands
 
@@ -76,102 +154,6 @@ You need to set your own key binding for the Claude Code command map. The exampl
 - `claude-code-send-2` (`C-c c 2`) - Send "2" to Claude (useful for selecting the second option when Claude presents a numbered menu)
 - `claude-code-send-3` (`C-c c 3`) - Send "3" to Claude (useful for selecting the third option when Claude presents a numbered menu)
 - `claude-code-cycle-mode` (`C-c c TAB`) - Send Shift-Tab to Claude to cycle between default mode, auto-accept edits mode, and plan mode
-
-With a single prefix arg, `claude-code`, `claude-code-send-command` and
-`claude-code-send-command-with-context` will switch to the Claude terminal buffer after sending the
-command.
-
-### Keybindings in Claude Buffers
-
-In Claude buffers, the ESC key now works as expected - a single press sends an escape character to Claude. This is useful for canceling operations or saying "No" to Claude prompts. You can also use `C-g` as an alternative way to send escape/cancel.
-
-The behavior of the return key and its modifiers can be customized using the `claude-code-newline-keybinding-style` variable. By default, pressing `RET` sends your message to Claude while `S-return` (Shift + Return) inserts a newline. This can be changed to match your preferences - for example, you can configure it so that `RET` inserts newlines and `S-return` sends the message, or use `M-return` (Meta/Alt + Return) or `s-return` (Super/Command + Return on macOS) for either action. See the Customization section for available options.
-
-### Read-Only Mode Toggle
-
-The `claude-code-toggle-read-only-mode` command provides a convenient way to switch between normal terminal mode and read-only mode in the Claude buffer:
-
-- `claude-code-toggle-read-only-mode` - Toggle between read-only mode and normal mode
-
-In read-only mode, you can interact with the terminal buffer just like a regular Emacs buffer, making it easy to select and copy text. However, you cannot change the buffer contents or enter Claude commands in this mode. This is particularly useful when you need to copy output from Claude without accidentally modifying the terminal.
-
-The command automatically detects the current mode and switches to the other:
-- If in normal terminal mode (semi-char mode), it switches to read-only mode
-- If in read-only mode (emacs mode), it switches back to normal terminal mode
-
-### Continuing and Resuming Conversations
-
-Claude Code provides two ways to restore previous conversations:
-
-#### Continue Most Recent Conversation
-
-Use the `claude-code-continue` command (`C-c c C`) to resume where you left off in your most recent Claude session in the current directory. This command uses Claude's `--continue` flag.
-
-- `claude-code-continue` - Continue the most recent conversation in the current directory
-- With prefix arg (`C-u`) - Continue conversation and switch to buffer
-- With double prefix arg (`C-u C-u`) - Continue conversation in a specific directory (prompts for directory)
-
-#### Resume Specific Session
-
-Use the `claude-code-resume` command (`C-c c R`) to resume a specific past session. This command uses Claude's `--resume` flag and allows you to:
-
-- Resume any past session by selecting from an interactive list
-- Resume a specific session if you know its ID (can be passed programmatically)
-- With prefix arg (`C-u`) - Resume session and switch to buffer
-- With double prefix arg (`C-u C-u`) - Resume session in a specific directory (prompts for directory)
-
-### Transient Menus
-
-Access all commands through the transient menu with `C-c c m`.
-
-#### Slash Commands Menu
-
-For quick access to Claude slash commands like `/help`, `/clear`, or `/compact`, use `C-c c /` to open the slash commands menu.
-
-### Read-Only Mode for Text Selection
-
-In the Claude terminal, you can switch to a read-only mode to select and copy text:
-
-- `C-c C-e` (`eat-emacs-mode`) - Switch to read-only mode with normal Emacs cursor for text selection
-- `C-c C-j` (`semi-char-mode`) - Return to normal terminal mode
-
-The cursor appearance in read-only mode can be customized via the `claude-code-eat-read-only-mode-cursor-type` variable when using the eat backend. See the "Eat-specific Customization" section for details.
-
-### Multiple Claude Instances
-
-`claude-code.el` supports running multiple Claude instances across different projects and directories. Each Claude instance is associated with a specific directory (project root, file directory, or current directory).
-
-#### Instance Management
-
-- When you start Claude with `claude-code`, it creates an instance for the current directory
-- If a Claude instance already exists for the directory, you'll be prompted to name the new instance (e.g., "tests", "docs")
-- You can also use `claude-code-new-instance` to explicitly create a new instance with a custom name
-- Buffer names follow the format:
-  - `*claude:/path/to/directory*` for the default instance
-  - `*claude:/path/to/directory:instance-name*` for named instances (e.g., `*claude:/home/user/project:tests*`)
-- If you're in a directory without a Claude instance but have instances running in other directories, you'll be prompted to select one
-- Your selection is remembered for that directory, so you won't be prompted again
-- To start a new instance instead of selecting an existing one, cancel the prompt with `C-g`
-
-#### Instance Selection
-
-Commands that operate on an instance (`claude-send-command`, `claude-code-switch-to-buffer`, `claude-code-kill`, etc.) will prompt you for the Claude instance if there is more than one instance associated with the current buffer's project.
-
-If the buffer file is not associated with a running Claude instance, you can select an instance running in a different project. This is useful when you want Claude to analyze dependent projects or files that you have checked out in sibling directories.
-
-Claude-code.el remembers which buffers are associated with which Claude instances, so you won't be repeatedly prompted. This association also helps claude-code.el "do the right thing" when killing a Claude process and deleting its associated buffer.
-
-#### Multiple Instances Per Directory
-
-You can run multiple Claude instances for the same directory to support different workflows:
-
-- The first instance in a directory is the "default" instance
-- Additional instances require a name when created (e.g., "tests", "docs", "refactor")
-- When multiple instances exist for a directory, commands that interact with Claude will prompt you to select which instance to use
-- Use `C-u claude-code-switch-to-buffer` to see all Claude instances across all directories (not just the current directory)
-- Use `claude-code-select-buffer` as a dedicated command to always show all Claude instances across all directories
-
-This allows you to have separate Claude conversations for different aspects of your work within the same project, such as one instance for writing code and another for writing tests.
 
 ## Customization
 
@@ -339,18 +321,6 @@ This [demo](./demo.gif) shows claude-code.el in action, including accessing the 
 
 Check out this [video demo](https://www.youtube.com/watch?v=K8sCVLmFyyU) demonstrating the claude-code.el package. This video was kindly created and shared by a user of the package.
 
-### Terminal Backend
-
-Claude Code uses a terminal emulator backend for the Claude interface. The backend can be configured using the `claude-code-terminal-backend` variable:
-
-```elisp
-;; Configure the terminal backend (default is 'eat)
-;; Supported values: 'eat or 'vterm
-(setq claude-code-terminal-backend 'eat)
-```
-
-Both [eat](https://codeberg.org/akib/emacs-eat) and [vterm](https://github.com/akermu/emacs-libvterm) terminal emulators are supported. Note that some features like customizable newline keybinding styles are currently only available with the eat backend.
-
 ### Eat-specific Customization
 
 When using the eat terminal backend, there are additional customization options available:
@@ -368,10 +338,6 @@ When using the eat terminal backend, there are additional customization options 
 (setq claude-code-eat-never-truncate-claude-buffer t)
 ```
 
-## Limitations
-
-- `claude-code.el` supports both [eat](https://codeberg.org/akib/emacs-eat) and [vterm](https://github.com/akermu/emacs-libvterm) terminal emulators. Some features like customizable newline keybinding styles are currently only available with the eat backend.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -379,3 +345,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+

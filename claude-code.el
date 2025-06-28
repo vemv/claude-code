@@ -300,13 +300,20 @@ for each directory across multiple invocations.")
   ["Claude Commands"
    ["Start/Stop Claude"
     ("c" "Start Claude" claude-code)
+    ("d" "Start in directory" claude-code-start-in-directory)
     ("C" "Continue conversation" claude-code-continue)
     ("R" "Resume session" claude-code-resume)
     ("i" "New instance" claude-code-new-instance)
-    ("d" "Start in directory" claude-code-start-in-directory)
     ("k" "Kill Claude" claude-code-kill)
     ("K" "Kill all Claude instances" claude-code-kill-all)
     ]
+   ["Send Commands to Claude"
+    ("s" "Send command" claude-code-send-command)
+    ("x" "Send command with context" claude-code-send-command-with-context)
+    ("r" "Send region or buffer" claude-code-send-region)
+    ("e" "Fix error at point" claude-code-fix-error-at-point)
+    ("f" "Fork conversation" claude-code-fork)
+    ("/" "Slash Commands" claude-code-slash-commands)]
    ["Manage Claude"
     ("t" "Toggle claude window" claude-code-toggle)
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
@@ -314,13 +321,8 @@ for each directory across multiple invocations.")
     ("z" "Toggle read-only mode" claude-code-toggle-read-only-mode)
     ("TAB" "Cycle Claude mode" claude-code-cycle-mode :transient t)
     ]
-   ["Send Commands to Claude" ("s" "Send command" claude-code-send-command)
-    ("x" "Send command with context" claude-code-send-command-with-context)
-    ("r" "Send region or buffer" claude-code-send-region)
-    ("e" "Fix error at point" claude-code-fix-error-at-point)
-    ("f" "Fork conversation" claude-code-fork)
-    ("/" "Slash Commands" claude-code-slash-commands)]
-   ["Quick Responses" ("y" "Send <return> (\"Yes\")" claude-code-send-return)
+   ["Quick Responses"
+    ("y" "Send <return> (\"Yes\")" claude-code-send-return)
     ("n" "Send <escape> (\"No\")" claude-code-send-escape)
     ("1" "Send \"1\"" claude-code-send-1)
     ("2" "Send \"2\"" claude-code-send-2)
@@ -1172,7 +1174,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
 ;;;###autoload
 (defun claude-code-resume (arg)
-  "Resume a specific Claude session by SESSION-ID or choose interactively.
+  "Resume a specific Claude session.
 
 This command starts Claude with the --resume flag to resume a specific
 past session. Claude will present an interactive list of past sessions
@@ -1290,14 +1292,6 @@ INPUT is the terminal output string."
              (buffer-local-value 'claude-code-mode (process-buffer process)))
     (claude-code--notify nil))
   (funcall orig-fun process input))
-
-(defun claude-code--get-cursor-position ()
-  "Get the cursor position in Claude Code's input box."
-  (save-excursion
-    (goto-char (point-max))
-    (let ((match (re-search-backward "[^[:space:]][[:space:]]+│$" nil t)))
-      (when match
-        (+ match 1)))))
 
 (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
   "Advice to only signal on width change.
