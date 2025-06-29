@@ -424,6 +424,23 @@ To reduce flickering in the Claude buffer on window configuration changes, you c
 
 *Note*: Recent changes to claude-code.el have fixed flickering issues, making customization of these latency values less necessary. 
 
+### Fixing Spaces Between Vertical Bars
+
+If you see spaces between vertical bars in Claude's output, you can fix this by adjusting the `line-spacing` value. For example:
+
+```elisp
+;; Set line spacing to reduce gaps between vertical bars
+(setq line-spacing 0.1)
+```
+
+Or to apply it only to Claude buffers:
+
+```elisp
+(add-hook 'claude-code-start-hook
+          (lambda ()
+            ;; Reduce line spacing to fix vertical bar gaps
+            (setq-local line-spacing 0.1))) 
+
 ## Demo
 
 ### GIF Demo
