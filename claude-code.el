@@ -1651,9 +1651,10 @@ Sends <escape><escape> to the Claude Code REPL."
   (interactive)
   (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
       (with-current-buffer claude-code-buffer
-        (claude-code--term-send-string claude-code-terminal-backend ""))
-    (display-buffer claude-code-buffer))
-  (error "Claude is not running"))
+        (claude-code--term-send-string claude-code-terminal-backend "")
+        ;; (display-buffer claude-code-buffer)
+        (switch-to-buffer claude-code-buffer))
+    (claude-code--show-not-running-message)))
 
 ;;;###autoload
 (defun claude-code-fix-error-at-point (&optional arg)
