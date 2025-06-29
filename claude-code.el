@@ -1318,12 +1318,6 @@ TERMINAL is the eat terminal parameter (not used)."
              "Claude Ready"
              "Waiting for your response")))
 
-(defvar-local claude-code--vterm-multiline-buffer nil
-  "Buffer for accumulating multi-line vterm output.")
-
-(defvar-local claude-code--vterm-multiline-buffer-timer nil
-  "Timer for processing buffered multi-line vterm output.")
-
 (defun claude-code--vterm-bell-detector (orig-fun process input)
   "Detect bell characters in vterm output and trigger notifications.
 
@@ -1335,8 +1329,14 @@ INPUT is the terminal output string."
              ;; Ignore bells in OSC sequences (terminal title updates)
              (not (string-match-p "]0;.*\007" input)))
     (claude-code--notify nil))
-  
+
   (funcall orig-fun process input))
+
+(defvar-local claude-code--vterm-multiline-buffer nil
+  "Buffer for accumulating multi-line vterm output.")
+
+(defvar-local claude-code--vterm-multiline-buffer-timer nil
+  "Timer for processing buffered multi-line vterm output.")
 
 (defun claude-code--vterm-multiline-buffer-filter (orig-fun process input)
   "Buffer vterm output when it appears to be redrawing multi-line input.
@@ -1351,49 +1351,49 @@ INPUT is the terminal output string."
       ;; Feature disabled, pass through normally
       (funcall orig-fun process input)
     (with-current-buffer (process-buffer process)
-    ;; Check if this looks like multi-line input box redraw
-    ;; Common patterns when redrawing multi-line input:
-    ;; - ESC[K (clear to end of line)
-    ;; - ESC[<n>;<m>H (cursor positioning)
-    ;; - ESC[<n>A/B/C/D (cursor movement)
-    ;; - Multiple of these in sequence
-    (let ((has-clear-line (string-match-p "\033\\[K" input))
-          (has-cursor-pos (string-match-p "\033\\[[0-9]+;[0-9]+H" input))
-          (has-cursor-move (string-match-p "\033\\[[0-9]*[ABCD]" input))
-          (escape-count (cl-count ?\033 input)))
-      
-      ;; If we see multiple escape sequences that look like redrawing,
-      ;; or we're already buffering, add to buffer
-      (if (or (and (>= escape-count 3)
-                   (or has-clear-line has-cursor-pos has-cursor-move))
-              claude-code--vterm-multiline-buffer)
-          (progn
-            ;; Add to buffer
-            (setq claude-code--vterm-multiline-buffer
-                  (concat claude-code--vterm-multiline-buffer input))
-            ;; Cancel existing timer
-            (when claude-code--vterm-multiline-buffer-timer
-              (cancel-timer claude-code--vterm-multiline-buffer-timer))
-            ;; Set timer with very short delay (1ms)
-            ;; This is enough to collect a burst of updates but not noticeable to user
-            (setq claude-code--vterm-multiline-buffer-timer
-                  (run-at-time 0.001 nil
-                               (lambda (buf)
-                                 (when (buffer-live-p buf)
-                                   (with-current-buffer buf
-                                     (when claude-code--vterm-multiline-buffer
-                                       (let ((inhibit-redisplay t)
-                                             (data claude-code--vterm-multiline-buffer))
-                                         ;; Clear buffer first to prevent recursion
-                                         (setq claude-code--vterm-multiline-buffer nil
-                                               claude-code--vterm-multiline-buffer-timer nil)
-                                         ;; Process all buffered data at once
-                                         (funcall orig-fun
-                                                  (get-buffer-process buf)
-                                                  data))))))
-                               (current-buffer))))
-        ;; Not multi-line redraw, process normally
-        (funcall orig-fun process input))))))
+      ;; Check if this looks like multi-line input box redraw
+      ;; Common patterns when redrawing multi-line input:
+      ;; - ESC[K (clear to end of line)
+      ;; - ESC[<n>;<m>H (cursor positioning)
+      ;; - ESC[<n>A/B/C/D (cursor movement)
+      ;; - Multiple of these in sequence
+      (let ((has-clear-line (string-match-p "\033\\[K" input))
+            (has-cursor-pos (string-match-p "\033\\[[0-9]+;[0-9]+H" input))
+            (has-cursor-move (string-match-p "\033\\[[0-9]*[ABCD]" input))
+            (escape-count (cl-count ?\033 input)))
+
+        ;; If we see multiple escape sequences that look like redrawing,
+        ;; or we're already buffering, add to buffer
+        (if (or (and (>= escape-count 3)
+                     (or has-clear-line has-cursor-pos has-cursor-move))
+                claude-code--vterm-multiline-buffer)
+            (progn
+              ;; Add to buffer
+              (setq claude-code--vterm-multiline-buffer
+                    (concat claude-code--vterm-multiline-buffer input))
+              ;; Cancel existing timer
+              (when claude-code--vterm-multiline-buffer-timer
+                (cancel-timer claude-code--vterm-multiline-buffer-timer))
+              ;; Set timer with very short delay (1ms)
+              ;; This is enough to collect a burst of updates but not noticeable to user
+              (setq claude-code--vterm-multiline-buffer-timer
+                    (run-at-time 0.001 nil
+                                 (lambda (buf)
+                                   (when (buffer-live-p buf)
+                                     (with-current-buffer buf
+                                       (when claude-code--vterm-multiline-buffer
+                                         (let ((inhibit-redisplay t)
+                                               (data claude-code--vterm-multiline-buffer))
+                                           ;; Clear buffer first to prevent recursion
+                                           (setq claude-code--vterm-multiline-buffer nil
+                                                 claude-code--vterm-multiline-buffer-timer nil)
+                                           ;; Process all buffered data at once
+                                           (funcall orig-fun
+                                                    (get-buffer-process buf)
+                                                    data))))))
+                                 (current-buffer))))
+          ;; Not multi-line redraw, process normally
+          (funcall orig-fun process input))))))
 
 (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
   "Advice to only signal on width change.
