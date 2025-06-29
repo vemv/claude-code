@@ -9,7 +9,10 @@ All notable changes to claude-code.el will be documented in this file.
 - New `claude-code-eat` customization group for eat backend specific settings
   - All eat-specific faces moved to this group with `claude-code-eat-` prefix
   - Faces can be customized via `M-x customize-group RET claude-code-eat RET`
-- vterm supporte
+- vterm support
+  - New `claude-code-terminal-backend` customization variable to choose between eat (default) and vterm
+  - New `claude-code-vterm` customization group for vterm-specific settings
+  - `claude-code-vterm-buffer-multiline-output` prevents flickering when Claude redraws multi-line input boxes
 - New `claude-code-newline-keybinding-style` customization variable to configure how return and modifier keys behave in Claude buffers
   - `'default` (default): M-return inserts newline, RET sends message
   - `'newline-on-return`: RET inserts newline, M-return sends message
@@ -44,6 +47,13 @@ All notable changes to claude-code.el will be documented in this file.
   - Bound to `C-c c K` in the command map
   - Kills all Claude instances across all projects and directories
   - Provides dedicated functionality previously available via `C-u claude-code-kill`
+- New notification system for when Claude finishes processing and awaits input
+  - `claude-code-enable-notifications` customization variable to toggle notifications (default: t)
+  - `claude-code-notification-function` customization variable to set custom notification behavior
+  - Default notification displays a message and pulses the modeline for visual feedback
+- New `claude-code-optimize-window-resize` customization variable to prevent unnecessary terminal reflows
+  - When enabled (default), terminal only reflows when window width changes, not height
+  - Improves performance and reduces visual artifacts when splitting windows vertically
 
 ### Changed
 
