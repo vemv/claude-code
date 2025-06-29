@@ -451,7 +451,8 @@ When using the eat terminal backend, there are additional customization options 
 ;; Disable truncation of Claude output buffer (default is nil)
 ;; When set to t, eat will not truncate the terminal scrollback buffer,
 ;; allowing Claude to output unlimited content without truncation
-;; Note: This may consume more memory for very large outputs
+;; Note: This may consume more memory for very large outputs and can
+;; cause performance issues with long Claude sessions
 (setq claude-code-eat-never-truncate-claude-buffer t)
 ```
 
