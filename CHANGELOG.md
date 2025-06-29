@@ -2,6 +2,14 @@
 
 All notable changes to claude-code.el will be documented in this file.
 
+## [0.3.9]
+
+### Fixed
+
+- Fixed buffer jumping issue in long Claude sessions where the buffer would suddenly jump to the top
+  - Improved `claude-code--synchronize-scroll` to center the cursor when not visible instead of jumping to terminal beginning
+  - This prevents disorienting jumps that become more frequent as sessions grow longer
+
 ## [0.3.8]
 
 ### Added
