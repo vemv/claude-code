@@ -117,6 +117,19 @@ When nil, Claude instances will be killed without confirmation."
   :type 'boolean
   :group 'claude-code)
 
+(defcustom claude-code-optimize-window-resize t
+  "Whether to optimize terminal window resizing to prevent unnecessary reflows.
+
+When non-nil, terminal reflows are only triggered when the window width
+changes, not when only the height changes. This prevents unnecessary
+terminal redraws when windows are split or resized vertically, improving
+performance and reducing visual artifacts.
+
+Set to nil if you experience issues with terminal display after window
+resizing."
+  :type 'boolean
+  :group 'claude-code)
+
 ;;;;; Eat terminal customizations
 ;; Eat-specific terminal faces
 (defface claude-code-eat-prompt-annotation-running-face
@@ -1013,8 +1026,9 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
   "Kill a Claude BUFFER by cleaning up hooks and processes."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      ;; Remove the adjust window size advice
-      (advice-remove (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) #'claude-code--adjust-window-size-advice)
+      ;; Remove the adjust window size advice if it was added
+      (when claude-code-optimize-window-resize
+        (advice-remove (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) #'claude-code--adjust-window-size-advice))
       ;; Remove vterm advice if using vterm backend
       (when (eq claude-code-terminal-backend 'vterm)
         (advice-remove 'vterm--filter #'claude-code--vterm-bell-detector)
@@ -1099,8 +1113,9 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Initialize the window widths hash table
       (setq claude-code--window-widths (make-hash-table :test 'eq :weakness 'key))
 
-      ;; Set up window width tracking
-      (advice-add (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) :around #'claude-code--adjust-window-size-advice)
+      ;; Set up window width tracking if optimization is enabled
+      (when claude-code-optimize-window-resize
+        (advice-add (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) :around #'claude-code--adjust-window-size-advice))
 
       ;; Setup our custom key bindings
       (claude-code--term-setup-keymap claude-code-terminal-backend)

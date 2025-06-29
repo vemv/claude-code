@@ -260,6 +260,12 @@ For Windows, you can use PowerShell to create toast notifications:
 
 *Note: Linux and Windows examples are untested. Feedback and improvements are welcome!*
 
+## Tips and Tricks
+
+- In the Claude window, use `C-v` paste an image into Claude code.  Note that it's `Control-v` on macOS, _not_ `Command - v`. 
+I i
+- Use `C-y` (`yank`) to paste text into the Claude window. The system paste hot keys 
+
 ## Customization {#customization}
 
 ```elisp
@@ -318,6 +324,13 @@ For Windows, you can use PowerShell to create toast notifications:
 ;; When t, claude-code-kill prompts for confirmation before killing instances
 ;; When nil, kills Claude instances without confirmation
 (setq claude-code-confirm-kill t)
+
+;; Enable/disable window resize optimization (default is t)
+;; When enabled, terminal reflows are only triggered when window width changes,
+;; not when only height changes. This prevents unnecessary redraws when splitting
+;; windows vertically, improving performance and reducing visual artifacts.
+;; Set to nil if you experience issues with terminal display after resizing.
+(setq claude-code-optimize-window-resize t)
 ```
 
 ### Customizing Window Position
@@ -441,6 +454,18 @@ When using the eat terminal backend, there are additional customization options 
 ;; allowing Claude to output unlimited content without truncation
 ;; Note: This may consume more memory for very large outputs
 (setq claude-code-eat-never-truncate-claude-buffer t)
+```
+
+### Vterm-specific Customization
+
+When using the vterm terminal backend, there are additional customization options available:
+
+```elisp
+;; Enable/disable buffering to prevent flickering on multi-line input (default is t)
+;; When enabled, vterm output that appears to be redrawing multi-line input boxes
+;; will be buffered briefly (1ms) and processed in a single batch
+;; This prevents flickering when Claude redraws its input box as it expands
+(setq claude-code-vterm-buffer-multiline-output t)
 ```
 
 ## Contributing
