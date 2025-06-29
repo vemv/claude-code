@@ -467,6 +467,52 @@ When using the vterm terminal backend, there are additional customization option
 (setq claude-code-vterm-buffer-multiline-output t)
 ```
 
+#### Vterm Scrollback Configuration
+
+Vterm has its own scrollback limit that is separate from claude-code.el settings. By default, vterm limits scrollback to 1000 lines. To allow scrolling back to the top of long Claude conversations, you can increase `vterm-max-scrollback`:
+
+```elisp
+;; Increase vterm scrollback to 100000 lines (the maximum allowed)
+;; Note: This increases memory usage
+(setq vterm-max-scrollback 100000)
+```
+
+If you prefer not to set this globally, you can set it only for Claude buffers using a hook:
+
+```elisp
+(add-hook 'claude-code-start-hook
+          (lambda ()
+            ;; Only increase scrollback for vterm backend
+            (when (eq claude-code-terminal-backend 'vterm)
+              (setq-local vterm-max-scrollback 100000))))
+```
+
+This ensures that only Claude buffers have increased scrollback, while other vterm buffers maintain the default limit.
+
+#### Vterm Window Width Configuration
+
+Vterm has a minimum window width setting that affects how text wraps. By default, `vterm-min-window-width` is set to 80 columns. If you resize the Claude window to be narrower than this limit, the Claude input box may wrap incorrectly, causing display issues.
+
+If you prefer to use Claude in a narrow window (for example, in a side window), you can adjust this setting:
+
+```elisp
+;; Allow vterm windows to be as narrow as 40 columns
+(setq vterm-min-window-width 40)
+```
+
+For a buffer-local setting that only affects Claude windows:
+
+```elisp
+(add-hook 'claude-code-start-hook
+          (lambda ()
+            ;; Only adjust min width for vterm backend
+            (when (eq claude-code-terminal-backend 'vterm)
+              ;; Allow this Claude buffer to work in narrower windows
+              (setq-local vterm-min-window-width 50))))
+```
+
+This is particularly useful if you like to keep Claude in a narrow side window while coding in your main window.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
