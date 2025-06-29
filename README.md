@@ -8,11 +8,11 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 - **Stay in Your Buffer** - Send code, regions, or commands to Claude while keeping your focus
 - **Fix Errors Instantly** - Point at a flycheck/flymake error and ask Claude to fix it
 - **Multiple Instances** - Run separate Claude sessions for different projects or tasks
-- **Quick Responses** - Answer Claude with a keystroke (yes/no/1/2/3) without switching buffers
-- **Smart Context** - Automatically include file paths and line numbers when asking questions
-- **Transient Menu** - Access all commands and slash commands through an intuitive menu
+- **Quick Responses** - Answer Claude with a keystroke (<return>/<escape>/1/2/3) without switching buffers
+- **Smart Context** - Optionally include file paths and line numbers when sending commands to Claude
+- **Transient Menu** - Access all commands and slash commands through a transient menu
 - **Continue Conversations** - Resume previous sessions or fork to earlier points
-- **Read-Only Mode** - Toggle to select and copy text with normal Emacs commands
+- **Read-Only Mode** - Toggle to select and copy text with normal Emacs commands and keybindings
 - **Mode Cycling** - Quick switch between default, auto-accept edits, and plan modes
 - **Desktop Notifications** - Get notified when Claude finishes processing
 - **Terminal Choice** - Works with both eat and vterm backends
@@ -59,7 +59,7 @@ By default claude-code.el uses the `eat` backend. If you prefer vterm customize
 `claude-code-terminal-backend`:
 
 ```elisp
-(setq claude-code-terminal-backend 'vterm')
+(setq claude-code-terminal-backend 'vterm)
 ```
 
 ### Transient Menu
@@ -107,9 +107,9 @@ To enter read-only mode in the Claude buffer use `claude-code-toggle-read-only-m
 
 Sometimes you want to send a quick response to Claude without switching to the Claude buffer. The following commands let you answer a query from Claude without leaving your current editing buffer:
 
-- `claude-code-send-return` (`C-c c y`) - send the return or enter key to Claude, commonly used to respond with "Yes" to Claude queries.
+- `claude-code-send-return` (`C-c c y`) - send the return or enter key to Claude, commonly used to respond with "Yes" to Claude queriesy
 - `claude-code-send-escape` (`C-c c n`) - send the escape key, to say "No" to Claude or to cancel a running Claude action
-- `claude-code-send-1` (`C-c c 1`) - send "1" to Claude, to choose option "1" in response to a Claude query.
+- `claude-code-send-1` (`C-c c 1`) - send "1" to Claude, to choose option "1" in response to a Claude query
 - `claude-code-send-2` (`C-c c 2`) - send "2" to Claude
 - `claude-code-send-3` (`C-c c 3`) - send "3" to Claude
 
@@ -123,11 +123,9 @@ Sometimes you want to send a quick response to Claude without switching to the C
 - If a Claude instance already exists for the directory, you'll be prompted to name the new instance (e.g., "tests", "docs")
 - You can also use `claude-code-new-instance` to explicitly create a new instance with a custom name
 - Buffer names follow the format:
-  - `*claude:/path/to/directory*` for the default instance
-  - `*claude:/path/to/directory:instance-name*` for named instances (e.g., `*claude:/home/user/project:tests*`)
+  - `*claude:/path/to/directory:instance-name*` (e.g., `*claude:/home/user/project:tests*`)
 - If you're in a directory without a Claude instance but have instances running in other directories, you'll be prompted to select one
 - Your selection is remembered for that directory, so you won't be prompted again
-- To start a new instance instead of selecting an existing one, cancel the prompt with `C-g`
 
 ### Instance Selection
 
@@ -165,30 +163,31 @@ You can change this behavior by customizing `claude-code-newline-keybinding-styl
 
 ### Command Reference
 
+- `claude-code-transient` (`C-c c m`) - Show all commands (transient menu)
 - `claude-code` (`C-c c c`) - Start Claude. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
+- `claude-code-start-in-directory` (`C-c c d`) - Prompt for a directory and start Claude there. With prefix arg (`C-u`), switches to the Claude buffer after creating
 - `claude-code-continue` (`C-c c C`) - Start Claude and continue the previous conversation. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-resume` (`C-c c R`) - Resume a specific Claude session from an interactive list. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
 - `claude-code-new-instance` (`C-c c i`) - Create a new Claude instance with a custom name. Always prompts for instance name, unlike `claude-code` which uses "default" when no instances exist. With prefix arg (`C-u`), switches to the Claude buffer after creating. With double prefix (`C-u C-u`), prompts for the project directory
-- `claude-code-start-in-directory` (`C-c c d`) - Prompt for a directory and start Claude there. With prefix arg (`C-u`), switches to the Claude buffer after creating
-- `claude-code-toggle` (`C-c c t`) - Toggle Claude window
-- `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
-- `claude-code-select-buffer` (`C-c c B`) - Select and switch to a Claude buffer from all running instances across all projects and directories
 - `claude-code-kill` (`C-c c k`) - Kill Claude session
 - `claude-code-kill-all` (`C-c c K`) - Kill ALL Claude instances across all directories
 - `claude-code-send-command` (`C-c c s`) - Send command to Claude. With prefix arg (`C-u`), switches to the Claude buffer after sending
 - `claude-code-send-command-with-context` (`C-c c x`) - Send command with current file and line context. With prefix arg (`C-u`), switches to the Claude buffer after sending
 - `claude-code-send-region` (`C-c c r`) - Send the current region or buffer to Claude. With prefix arg (`C-u`), prompts for instructions to add to the text. With double prefix (`C-u C-u`), adds instructions and switches to Claude buffer
 - `claude-code-fix-error-at-point` (`C-c c e`) - Ask Claude to fix the error at the current point (works with flycheck, flymake, and any system that implements help-at-pt). With prefix arg (`C-u`), switches to the Claude buffer after sending
-- `claude-code-slash-commands` (`C-c c /`) - Access Claude slash commands menu
-- `claude-code-transient` (`C-c c m`) - Show all commands (transient menu)
-- `claude-code-send-return` (`C-c c y`) - Send return key to Claude (useful for confirming with Claude without switching to the Claude REPL buffer)
-- `claude-code-send-escape` (`C-c c n`) - Send escape key to Claude (useful for saying "No" when Claude asks for confirmation without switching to the Claude REPL buffer)
 - `claude-code-fork` (`C-c c f`) - Fork conversation (jump to previous conversation by sending escape-escape to Claude)
+- `claude-code-slash-commands` (`C-c c /`) - Access Claude slash commands menu
+- `claude-code-toggle` (`C-c c t`) - Toggle Claude window
+- `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
+- `claude-code-select-buffer` (`C-c c B`) - Select and switch to a Claude buffer from all running instances across all projects and directories
+- `claude-code-toggle-read-only-mode` (`C-c c z`) - Toggle between read-only mode and normal mode in Claude buffer (useful for selecting and copying text)
+- `claude-code-cycle-mode` (`C-c c TAB`) - Send Shift-Tab to Claude to cycle between default mode, auto-accept edits mode, and plan mode
+
+- `claude-code-send-return` (`C-c c y`) - Send return key to Claude (useful for confirming with Claude without switching to the Claude REPL buffer) (useful for responding with "Yes"  to Claude)
+- `claude-code-send-escape` (`C-c c n`) - Send escape key to Claude (useful for saying "No" when Claude asks for confirmation without switching to the Claude REPL buffer)
 - `claude-code-send-1` (`C-c c 1`) - Send "1" to Claude (useful for selecting the first option when Claude presents a numbered menu)
 - `claude-code-send-2` (`C-c c 2`) - Send "2" to Claude (useful for selecting the second option when Claude presents a numbered menu)
 - `claude-code-send-3` (`C-c c 3`) - Send "3" to Claude (useful for selecting the third option when Claude presents a numbered menu)
-- `claude-code-cycle-mode` (`C-c c TAB`) - Send Shift-Tab to Claude to cycle between default mode, auto-accept edits mode, and plan mode
-- `claude-code-toggle-read-only-mode` (`C-c c z`) - Toggle between read-only mode and normal mode in Claude buffer (useful for selecting and copying text)
 
 ## Desktop Notifications
 
@@ -527,6 +526,12 @@ If you prefer to use Claude in a narrow window (for example, in a side window), 
 ```
 
 This is particularly useful if you like to keep Claude in a narrow side window while coding in your main window.
+
+#### Vterm Timer Delay
+
+The `vterm-timer-delay` variable controls how often vterm refreshes its buffer when receiving data. This delay (in seconds) helps manage performance when processing large amounts of output. Setting it to `nil` disables the delay entirely.
+
+The default value of `0.1` seconds works well with Claude Code. Since Claude often sends large bursts of data when generating code or explanations, reducing this delay or disabling it (`nil`) can significantly degrade performance. Stick with the default, or use a slightly higher value  unless you experience specific display issues. 
 
 ## Contributing
 
