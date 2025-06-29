@@ -446,10 +446,10 @@ Returns the buffer containing the terminal.")
     (unless (require 'eat nil t)
       (error "The eat package is required for eat terminal backend. Please install it"))))
 
-(cl-defmethod claude-code--term-make ((backend (eql eat)) buffer-name program &optional switches)
+(cl-defmethod claude-code--term-make ((_backend (eql eat)) buffer-name program &optional switches)
   "Create an eat terminal for BACKEND.
 
-BACKEND is the terminal backend type (should be \\='eat).
+_BACKEND is the terminal backend type (should be \\='eat).
 BUFFER-NAME is the name for the new terminal buffer.
 PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
@@ -459,43 +459,43 @@ SWITCHES are optional command-line arguments for PROGRAM."
          (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*")))
     (apply #'eat-make trimmed-buffer-name program nil switches)))
 
-(cl-defmethod claude-code--term-send-string ((backend (eql eat)) string)
+(cl-defmethod claude-code--term-send-string ((_backend (eql eat)) string)
   "Send STRING to eat terminal.
 
-BACKEND is the terminal backend type (should be \\='eat).
+_BACKEND is the terminal backend type (should be \\='eat).
 STRING is the text to send to the terminal."
   (eat-term-send-string eat-terminal string))
 
-(cl-defmethod claude-code--term-kill-process ((backend (eql eat)) buffer)
+(cl-defmethod claude-code--term-kill-process ((_backend (eql eat)) buffer)
   "Kill the eat terminal process in BUFFER.
 
-BACKEND is the terminal backend type (should be \\='eat).
+_BACKEND is the terminal backend type (should be \\='eat).
 BUFFER is the terminal buffer containing the process to kill."
   (with-current-buffer buffer
     (eat-kill-process)))
 
-(cl-defmethod claude-code--term-read-only-mode ((backend (eql eat)))
+(cl-defmethod claude-code--term-read-only-mode ((_backend (eql eat)))
   "Switch eat terminal to read-only mode.
 
-BACKEND is the terminal backend type (should be \\'eat)."
+_BACKEND is the terminal backend type (should be \\'eat)."
   (claude-code--ensure-eat)
   (eat-emacs-mode)
   (setq-local eat-invisible-cursor-type claude-code-eat-read-only-mode-cursor-type)
   (eat--set-cursor nil :invisible))
 
-(cl-defmethod claude-code--term-interactive-mode ((backend (eql eat)))
+(cl-defmethod claude-code--term-interactive-mode ((_backend (eql eat)))
   "Switch eat terminal to interactive mode.
 
-BACKEND is the terminal backend type (should be \\='eat)."
+_BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--ensure-eat)
   (eat-semi-char-mode)
   (setq-local eat-invisible-cursor-type nil)
   (eat--set-cursor nil :invisible))
 
-(cl-defmethod claude-code--term-in-read-only-p ((backend (eql eat)))
+(cl-defmethod claude-code--term-in-read-only-p ((_backend (eql eat)))
   "Check if eat terminal is in read-only mode.
 
-BACKEND is the terminal backend type (should be \\='eat)."
+_BACKEND is the terminal backend type (should be \\='eat)."
   (not eat--semi-char-mode))
 
 (defun claude-code--eat-synchronize-scroll (windows)
@@ -528,10 +528,10 @@ possible, preventing the scrolling up issue when editing other buffers."
               ;; Center cursor in window instead of jumping to term beginning
               (recenter)))))))))
 
-(cl-defmethod claude-code--term-configure ((backend (eql eat)))
+(cl-defmethod claude-code--term-configure ((_backend (eql eat)))
   "Configure eat terminal in current buffer.
 
-BACKEND is the terminal backend type (should be \\='eat)."
+_BACKEND is the terminal backend type (should be \\='eat)."
   (claude-code--ensure-eat)
   ;; Configure eat-specific settings
   (setq-local eat-term-name claude-code-term-name)
@@ -551,10 +551,10 @@ BACKEND is the terminal backend type (should be \\='eat)."
   ;; fix wonky initial terminal layout that happens sometimes if we show the buffer before claude is ready
   (sleep-for claude-code-startup-delay))
 
-(cl-defmethod claude-code--term-customize-faces ((backend (eql eat)))
+(cl-defmethod claude-code--term-customize-faces ((_backend (eql eat)))
   "Apply face customizations for eat terminal.
 
-BACKEND is the terminal backend type (should be \\='eat)."
+_BACKEND is the terminal backend type (should be \\='eat)."
   ;; Remap eat faces to Claude-specific faces
   (face-remap-add-relative 'eat-shell-prompt-annotation-running 'claude-code-eat-prompt-annotation-running-face)
   (face-remap-add-relative 'eat-shell-prompt-annotation-success 'claude-code-eat-prompt-annotation-success-face)
@@ -569,10 +569,10 @@ BACKEND is the terminal backend type (should be \\='eat)."
           (claude-face (intern (format "claude-code-eat-term-font-%d-face" i))))
       (face-remap-add-relative eat-face claude-face))))
 
-(cl-defmethod claude-code--term-setup-keymap ((backend (eql eat)))
+(cl-defmethod claude-code--term-setup-keymap ((_backend (eql eat)))
   "Set up the local keymap for Claude Code buffers.
 
-BACKEND is the terminal backend type (should be \\='eat)."
+_BACKEND is the terminal backend type (should be \\='eat)."
   (let ((map (make-sparse-keymap)))
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
@@ -604,7 +604,7 @@ BACKEND is the terminal backend type (should be \\='eat)."
 (cl-defgeneric claude-code--term-get-adjust-process-window-size-fn (backend)
   "Get the BACKEND specific function that adjusts window size.")
 
-(cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((backend (eql eat)))
+(cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((_backend (eql eat)))
   "Get the BACKEND specific function that adjusts window size."
   #'eat--adjust-process-window-size)
 
@@ -624,10 +624,10 @@ BACKEND is the terminal backend type (should be \\='eat)."
 (declare-function vterm-send-string "vterm" (string &optional paste-p))
 
 ;; Helper to ensure vterm is loaded
-(cl-defmethod claude-code--term-make ((backend (eql vterm)) buffer-name program &optional switches)
+(cl-defmethod claude-code--term-make ((_backend (eql vterm)) buffer-name program &optional switches)
   "Create a vterm terminal.
 
-BACKEND is the terminal backend type (should be \\='vterm).
+_BACKEND is the terminal backend type (should be \\='vterm).
 BUFFER-NAME is the name for the new terminal buffer.
 PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
@@ -663,48 +663,48 @@ SWITCHES are optional command-line arguments for PROGRAM."
     (unless (require 'vterm nil t)
       (error "The vterm package is required for vterm terminal backend. Please install it"))))
 
-(cl-defmethod claude-code--term-send-string ((backend (eql vterm)) string)
+(cl-defmethod claude-code--term-send-string ((_backend (eql vterm)) string)
   "Send STRING to vterm terminal.
 
-BACKEND is the terminal backend type (should be \\='vterm).
+_BACKEND is the terminal backend type (should be \\='vterm).
 _TERMINAL is unused for vterm backend.
 STRING is the text to send to the terminal."
   (vterm-send-string string))
 
-(cl-defmethod claude-code--term-kill-process ((backend (eql vterm)) buffer)
+(cl-defmethod claude-code--term-kill-process ((_backend (eql vterm)) buffer)
   "Kill the vterm terminal process in BUFFER.
 
-BACKEND is the terminal backend type (should be \\='vterm).
+_BACKEND is the terminal backend type (should be \\='vterm).
 BUFFER is the terminal buffer containing the process to kill."
   (kill-process (get-buffer-process buffer)))
 
 ;; Mode operations
-(cl-defmethod claude-code--term-read-only-mode ((backend (eql vterm)))
+(cl-defmethod claude-code--term-read-only-mode ((_backend (eql vterm)))
   "Switch vterm terminal to read-only mode.
 
-BACKEND is the terminal backend type (should be \\='vterm)."
+_BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
   (vterm-copy-mode 1)
   (setq-local cursor-type t))
 
-(cl-defmethod claude-code--term-interactive-mode ((backend (eql vterm)))
+(cl-defmethod claude-code--term-interactive-mode ((_backend (eql vterm)))
   "Switch vterm terminal to interactive mode.
 
-BACKEND is the terminal backend type (should be \\='vterm)."
+_BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
   (vterm-copy-mode -1)
   (setq-local cursor-type nil))
 
-(cl-defmethod claude-code--term-in-read-only-p ((backend (eql vterm)))
+(cl-defmethod claude-code--term-in-read-only-p ((_backend (eql vterm)))
   "Check if vterm terminal is in read-only mode.
 
-BACKEND is the terminal backend type (should be \\='vterm)."
+_BACKEND is the terminal backend type (should be \\='vterm)."
   vterm-copy-mode)
 
-(cl-defmethod claude-code--term-configure ((backend (eql vterm)))
+(cl-defmethod claude-code--term-configure ((_backend (eql vterm)))
   "Configure vterm terminal in current buffer.
 
-BACKEND is the terminal backend type (should be \\='vterm)."
+_BACKEND is the terminal backend type (should be \\='vterm)."
   (claude-code--ensure-vterm)
   ;; set TERM
   (setq vterm-term-environment-variable claude-code-term-name)
@@ -733,10 +733,10 @@ BACKEND is the terminal backend type (should be \\='vterm)."
   ;; Set up multi-line buffering to prevent flickering
   (advice-add 'vterm--filter :around #'claude-code--vterm-multiline-buffer-filter))
 
-(cl-defmethod claude-code--term-customize-faces ((backend (eql vterm)))
+(cl-defmethod claude-code--term-customize-faces ((_backend (eql vterm)))
   "Apply face customizations for vterm terminal.
 
-BACKEND is the terminal backend type (should be \\='vterm)."
+_BACKEND is the terminal backend type (should be \\='vterm)."
   ;; no faces to customize yet (this could change)
   )
 
@@ -772,10 +772,10 @@ BACKEND is the terminal backend type (should be \\='vterm)."
 ;;   (interactive)
 ;;   (vterm-send-key "" nil t))
 
-(cl-defmethod claude-code--term-setup-keymap ((backend (eql vterm)))
+(cl-defmethod claude-code--term-setup-keymap ((_backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers.
 
-BACKEND is the terminal backend type (should be \\='vterm)."
+_BACKEND is the terminal backend type (should be \\='vterm)."
   (let ((map (make-sparse-keymap)))
     ;; Inherit parent eat keymap
     (set-keymap-parent map (current-local-map))
@@ -803,7 +803,7 @@ BACKEND is the terminal backend type (should be \\='vterm)."
 
     (use-local-map map)))
 
-(cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((backend (eql vterm)))
+(cl-defmethod claude-code--term-get-adjust-process-window-size-fn ((_backend (eql vterm)))
   "Get the BACKEND specific function that adjusts window size."
   #'vterm--window-adjust-process-window-size)
 
