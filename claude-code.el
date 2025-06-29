@@ -113,6 +113,18 @@ When nil, Claude instances will be killed without confirmation."
   :type 'boolean
   :group 'claude-code)
 
+(defcustom claude-code-vterm-buffer-multiline-output t
+  "Whether to buffer vterm output to prevent flickering on multi-line input.
+
+When non-nil, vterm output that appears to be redrawing multi-line
+input boxes will be buffered briefly (1ms) and processed in a single
+batch. This prevents the flickering that can occur when Claude redraws
+its input box as it expands to multiple lines.
+
+This only affects the vterm backend."
+  :type 'boolean
+  :group 'claude-code)
+
 ;;;;; Eat terminal customizations
 ;; Eat-specific terminal faces
 (defface claude-code-eat-prompt-annotation-running-face
@@ -686,8 +698,23 @@ BACKEND is the terminal backend type (should be \\='vterm)."
     (setq-local vterm-max-scrollback 1000000))
   ;; Disable automatic scrolling to bottom on output to prevent flickering
   (setq-local vterm-scroll-to-bottom-on-output nil)
+  ;; Disable immediate redraw to batch updates and reduce flickering
+  (setq-local vterm--redraw-immididately nil)
+  ;; Try to prevent cursor flickering by disabling Emacs' own cursor management
+  (setq-local cursor-in-non-selected-windows nil)
+  (setq-local blink-cursor-mode nil)
+  (setq-local cursor-type nil)  ; Let vterm handle the cursor entirely
+  ;; Set timer delay to nil for faster updates (reduces visible flicker duration)
+  ;; (setq-local vterm-timer-delay nil)
+  ;; Increase process read buffering to batch more updates together
+  (when-let ((proc (get-buffer-process (current-buffer))))
+    (set-process-query-on-exit-flag proc nil)
+    ;; Try to make vterm read larger chunks at once
+    (process-put proc 'read-output-max 4096))
   ;; Set up bell detection advice
-  (advice-add 'vterm--filter :around #'claude-code--vterm-bell-detector))
+  (advice-add 'vterm--filter :around #'claude-code--vterm-bell-detector)
+  ;; Set up multi-line buffering to prevent flickering
+  (advice-add 'vterm--filter :around #'claude-code--vterm-multiline-buffer-filter))
 
 (cl-defmethod claude-code--term-customize-faces ((backend (eql vterm)))
   "Apply face customizations for vterm terminal.
@@ -983,9 +1010,10 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
     (with-current-buffer buffer
       ;; Remove the adjust window size advice
       (advice-remove (claude-code--term-get-adjust-process-window-size-fn claude-code-terminal-backend) #'claude-code--adjust-window-size-advice)
-      ;; Remove vterm bell detector advice if using vterm backend
+      ;; Remove vterm advice if using vterm backend
       (when (eq claude-code-terminal-backend 'vterm)
-        (advice-remove 'vterm--filter #'claude-code--vterm-bell-detector))
+        (advice-remove 'vterm--filter #'claude-code--vterm-bell-detector)
+        (advice-remove 'vterm--filter #'claude-code--vterm-multiline-buffer-filter))
       ;; Clean the window widths hash table
       (when claude-code--window-widths
         (clrhash claude-code--window-widths))
@@ -1264,6 +1292,12 @@ TERMINAL is the eat terminal parameter (not used)."
              "Claude Ready"
              "Waiting for your response")))
 
+(defvar-local claude-code--vterm-multiline-buffer nil
+  "Buffer for accumulating multi-line vterm output.")
+
+(defvar-local claude-code--vterm-multiline-buffer-timer nil
+  "Timer for processing buffered multi-line vterm output.")
+
 (defun claude-code--vterm-bell-detector (orig-fun process input)
   "Detect bell characters in vterm output and trigger notifications.
 
@@ -1275,7 +1309,67 @@ INPUT is the terminal output string."
              ;; Ignore bells in OSC sequences (terminal title updates)
              (not (string-match-p "]0;.*\007" input)))
     (claude-code--notify nil))
+  
   (funcall orig-fun process input))
+
+(defun claude-code--vterm-multiline-buffer-filter (orig-fun process input)
+  "Buffer vterm output when it appears to be redrawing multi-line input.
+This prevents flickering when Claude redraws its input box as it expands
+to multiple lines. We detect this by looking for escape sequences that
+indicate cursor positioning and line clearing operations.
+
+ORIG-FUN is the original vterm--filter function.
+PROCESS is the vterm process.
+INPUT is the terminal output string."
+  (if (not claude-code-vterm-buffer-multiline-output)
+      ;; Feature disabled, pass through normally
+      (funcall orig-fun process input)
+    (with-current-buffer (process-buffer process)
+    ;; Check if this looks like multi-line input box redraw
+    ;; Common patterns when redrawing multi-line input:
+    ;; - ESC[K (clear to end of line)
+    ;; - ESC[<n>;<m>H (cursor positioning)
+    ;; - ESC[<n>A/B/C/D (cursor movement)
+    ;; - Multiple of these in sequence
+    (let ((has-clear-line (string-match-p "\033\\[K" input))
+          (has-cursor-pos (string-match-p "\033\\[[0-9]+;[0-9]+H" input))
+          (has-cursor-move (string-match-p "\033\\[[0-9]*[ABCD]" input))
+          (escape-count (cl-count ?\033 input)))
+      
+      ;; If we see multiple escape sequences that look like redrawing,
+      ;; or we're already buffering, add to buffer
+      (if (or (and (>= escape-count 3)
+                   (or has-clear-line has-cursor-pos has-cursor-move))
+              claude-code--vterm-multiline-buffer)
+          (progn
+            ;; Add to buffer
+            (setq claude-code--vterm-multiline-buffer 
+                  (concat claude-code--vterm-multiline-buffer input))
+            
+            ;; Cancel existing timer
+            (when claude-code--vterm-multiline-buffer-timer
+              (cancel-timer claude-code--vterm-multiline-buffer-timer))
+            
+            ;; Set timer with very short delay (1ms)
+            ;; This is enough to collect a burst of updates but not noticeable to user
+            (setq claude-code--vterm-multiline-buffer-timer
+                  (run-at-time 0.001 nil
+                               (lambda (buf)
+                                 (when (buffer-live-p buf)
+                                   (with-current-buffer buf
+                                     (when claude-code--vterm-multiline-buffer
+                                       (let ((inhibit-redisplay t)
+                                             (data claude-code--vterm-multiline-buffer))
+                                         ;; Clear buffer first to prevent recursion
+                                         (setq claude-code--vterm-multiline-buffer nil
+                                               claude-code--vterm-multiline-buffer-timer nil)
+                                         ;; Process all buffered data at once
+                                         (funcall orig-fun
+                                                  (get-buffer-process buf)
+                                                  data))))))
+                               (current-buffer))))
+        ;; Not multi-line redraw, process normally
+        (funcall orig-fun process input))))))
 
 (defun claude-code--adjust-window-size-advice (orig-fun &rest args)
   "Advice to only signal on width change.
