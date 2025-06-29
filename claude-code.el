@@ -26,6 +26,10 @@
   "Eat terminal backend specific settings for Claude Code."
   :group 'claude-code)
 
+(defgroup claude-code-vterm nil
+  "Vterm terminal backend specific settings for Claude Code."
+  :group 'claude-code)
+
 (defface claude-code-repl-face
   nil
   "Face for Claude REPL."
@@ -110,18 +114,6 @@ to provide visual feedback when Claude is ready for input."
 
 When non-nil, claude-code-kill will prompt for confirmation.
 When nil, Claude instances will be killed without confirmation."
-  :type 'boolean
-  :group 'claude-code)
-
-(defcustom claude-code-vterm-buffer-multiline-output t
-  "Whether to buffer vterm output to prevent flickering on multi-line input.
-
-When non-nil, vterm output that appears to be redrawing multi-line
-input boxes will be buffered briefly (1ms) and processed in a single
-batch. This prevents the flickering that can occur when Claude redraws
-its input box as it expands to multiple lines.
-
-This only affects the vterm backend."
   :type 'boolean
   :group 'claude-code)
 
@@ -240,6 +232,19 @@ Note: Disabling truncation may consume more memory for very large
 outputs."
   :type 'boolean
   :group 'claude-code-eat)
+
+;;;;; Vterm terminal customizations
+(defcustom claude-code-vterm-buffer-multiline-output t
+  "Whether to buffer vterm output to prevent flickering on multi-line input.
+
+When non-nil, vterm output that appears to be redrawing multi-line
+input boxes will be buffered briefly (1ms) and processed in a single
+batch. This prevents the flickering that can occur when Claude redraws
+its input box as it expands to multiple lines.
+
+This only affects the vterm backend."
+  :type 'boolean
+  :group 'claude-code-vterm)
 
 ;;;; Forward declrations for flycheck
 (declare-function flycheck-overlay-errors-at "flycheck")
@@ -1343,13 +1348,11 @@ INPUT is the terminal output string."
               claude-code--vterm-multiline-buffer)
           (progn
             ;; Add to buffer
-            (setq claude-code--vterm-multiline-buffer 
+            (setq claude-code--vterm-multiline-buffer
                   (concat claude-code--vterm-multiline-buffer input))
-            
             ;; Cancel existing timer
             (when claude-code--vterm-multiline-buffer-timer
               (cancel-timer claude-code--vterm-multiline-buffer-timer))
-            
             ;; Set timer with very short delay (1ms)
             ;; This is enough to collect a burst of updates but not noticeable to user
             (setq claude-code--vterm-multiline-buffer-timer
