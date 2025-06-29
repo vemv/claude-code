@@ -264,6 +264,13 @@ For Windows, you can use PowerShell to create toast notifications:
 
 - **Paste images**: Use `C-v` to paste images into the Claude window. Note that on macOS, this is `Control-v`, not `Command-v`.
 - **Paste text**: Use `C-y` (`yank`) to paste text into the Claude window. 
+- **Save files before sending commands**: Claude reads files directly from disk, not from Emacs buffers. Always save your files (`C-x C-s`) before sending commands that reference file content. Consider enabling `global-auto-revert-mode` to automatically sync Emacs buffers with file changes made by Claude:
+  ```elisp
+  (global-auto-revert-mode 1)
+  ;; If files aren't reliably auto-reverting after Claude makes changes,
+  ;; disable file notification and use polling instead:
+  (setq auto-revert-use-notify nil)
+  ``` 
 
 ## Customization {#customization}
 
