@@ -471,13 +471,12 @@ When using the eat terminal backend, there are additional customization options 
 ;; Cursor type options: 'box, 'hollow, 'bar, 'hbar, or nil
 (setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
 
-;; Disable truncation of Claude output buffer (default is nil)
-;; When set to t, eat will not truncate the terminal scrollback buffer,
-;; allowing Claude to output unlimited content without truncation
-;; Note: This may consume more memory for very large outputs and can
-;; cause performance issues with long Claude sessions
-;; OBSOLETE: This variable is obsolete as of version 0.4.0
-(setq claude-code-eat-never-truncate-claude-buffer t)
+;; Control eat scrollback size for longer conversations
+;; The default is 131072 characters, which is usually sufficient
+;; For very long Claude sessions, you may want to increase it
+;; WARNING: Setting to nil (unlimited) is NOT recommended with Claude Code
+;; as it can cause severe performance issues with long sessions
+(setq eat-term-scrollback-size 500000)  ; Increase to 500k characters
 ```
 
 ### Vterm-specific Customization
