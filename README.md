@@ -493,22 +493,11 @@ This ensures that only Claude buffers have increased scrollback, while other vte
 
 Vterm has a minimum window width setting that affects how text wraps. By default, `vterm-min-window-width` is set to 80 columns. If you resize the Claude window to be narrower than this limit, the Claude input box may wrap incorrectly, causing display issues.
 
-If you prefer to use Claude in a narrow window (for example, in a side window), you can adjust this setting:
+If you prefer to use Claude in a narrow window (for example, in a side window), you can adjust `vterm-min-window-width`. Note that this must be set as a custom variable, either via `custom-set-variables` or `setop`, `setq` won't work:
 
 ```elisp
 ;; Allow vterm windows to be as narrow as 40 columns
-(setq vterm-min-window-width 40)
-```
-
-For a buffer-local setting that only affects Claude windows:
-
-```elisp
-(add-hook 'claude-code-start-hook
-          (lambda ()
-            ;; Only adjust min width for vterm backend
-            (when (eq claude-code-terminal-backend 'vterm)
-              ;; Allow this Claude buffer to work in narrower windows
-              (setq-local vterm-min-window-width 50))))
+(setopt vterm-min-window-width 40)
 ```
 
 This is particularly useful if you like to keep Claude in a narrow side window while coding in your main window.
