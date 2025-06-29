@@ -30,20 +30,54 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 ### Using builtin use-package (Emacs 30+)
 
 ```elisp
+;; add melp to package archives, as vterm is on melpa:
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+
+;; for eat terminal backend:
+(use-package eat :ensure t
+  :vc (:host codeberg
+             :repo "akib/emacs-eat"
+             :files ("*.el" ("term" "term/*.el") "*.texi" "*.ti" ("terminfo/e" "terminfo/e/*")
+                     ("terminfo/65" "terminfo/65/*")
+                     ("integration" "integration/*")
+                     (:exclude ".dir-locals.el" "*-tests.el"))))
+
+;; for vterm terminal backend:
+(use-package vterm :ensure t)
+
+;; install claude-code.el:
 (use-package claude-code :ensure t
   :vc (:url "https://github.com/stevemolitor/claude-code.el" :rev :newest)
   :config (claude-code-mode)
-  :bind-keymap ("C-c c" . claude-code-command-map)) ;; or your preferred key
+  :bind-keymap ("C-c c" . claude-code-command-map) ;; or your preferred key
+  )
 ```
 
 ### Using straight.el
 
 ```elisp
+;; for eat terminal backend:
+(use-package eat
+  :straight (:type git
+                   :host codeberg
+                   :repo "akib/emacs-eat"
+                   :files ("*.el" ("term" "term/*.el") "*.texi"
+                           "*.ti" ("terminfo/e" "terminfo/e/*")
+                           ("terminfo/65" "terminfo/65/*")
+                           ("integration" "integration/*")
+                           (:exclude ".dir-locals.el" "*-tests.el"))))
+
+;; for vterm terminal backend:
+(use-package vterm :straight t)
+
+;; install claude-code.el:
 (use-package claude-code
   :straight (:type git :host github :repo "stevemolitor/claude-code.el" :branch "main"
                    :files ("*.el" (:exclude "images/*")))
   :bind-keymap
-  ("C-c c" . claude-code-command-map)
+  ("C-c c" . claude-code-command-map) ;; or your preferred key
   :config
   (claude-code-mode))
 ```
