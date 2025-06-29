@@ -66,7 +66,7 @@ By default claude-code.el uses the `eat` backend. If you prefer vterm customize
 
 You can see a menu of the important commands by invoking the transient, `claude-code-transient` (`C-c c m`):
 
-![](./transient.png)
+![](./images/transient.png)
 
 ### Starting and Stopping Claude
 
@@ -451,7 +451,7 @@ Or to apply it only to Claude buffers:
 
 ### GIF Demo
 
-![Claude Code Emacs Demo](./demo.gif)
+![Claude Code Emacs Demo](./images/demo.gif)
 
 This [demo](./demo.gif) shows claude-code.el in action, including accessing the transient menu, sending commands with file context, and fixing errors.
 
