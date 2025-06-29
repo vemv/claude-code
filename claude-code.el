@@ -1103,6 +1103,14 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
          ;; Start the terminal process
          (buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)))
 
+    ;; Check if the claude program is available
+    (unless (executable-find claude-code-program)
+      (error "Claude Code program '%s' not found in PATH" claude-code-program))
+
+    ;; Check if buffer was successfully created
+    (unless (buffer-live-p buffer)
+      (error "Failed to create Claude Code buffer"))
+
     ;; setup claude buffer
     (with-current-buffer buffer
 
