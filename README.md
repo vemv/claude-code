@@ -262,9 +262,8 @@ For Windows, you can use PowerShell to create toast notifications:
 
 ## Tips and Tricks
 
-- In the Claude window, use `C-v` paste an image into Claude code.  Note that it's `Control-v` on macOS, _not_ `Command - v`. 
-I i
-- Use `C-y` (`yank`) to paste text into the Claude window. The system paste hot keys 
+- **Paste images**: Use `C-v` to paste images into the Claude window. Note that on macOS, this is `Control-v`, not `Command-v`.
+- **Paste text**: Use `C-y` (`yank`) to paste text into the Claude window. 
 
 ## Customization {#customization}
 
