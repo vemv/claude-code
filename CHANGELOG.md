@@ -4,6 +4,11 @@ All notable changes to claude-code.el will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- `claude-code-eat-never-truncate-claude-buffer` is now obsolete
+  - Setting it to t can consume excessive memory and cause performance issues with long sessions
+  - The variable will be removed in a future release
+
 ### Added
 
 - New `claude-code-eat` customization group for eat backend specific settings

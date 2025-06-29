@@ -477,6 +477,7 @@ When using the eat terminal backend, there are additional customization options 
 ;; allowing Claude to output unlimited content without truncation
 ;; Note: This may consume more memory for very large outputs and can
 ;; cause performance issues with long Claude sessions
+;; OBSOLETE: This variable is obsolete as of version 0.4.0
 (setq claude-code-eat-never-truncate-claude-buffer t)
 ```
 

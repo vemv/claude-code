@@ -246,6 +246,10 @@ outputs."
   :type 'boolean
   :group 'claude-code-eat)
 
+(make-obsolete-variable 'claude-code-eat-never-truncate-claude-buffer
+                        "Setting it to t can consume more memory for very large outputs and can cause performance issues with long Claude sessions"
+                        "0.4.0")
+
 ;;;;; Vterm terminal customizations
 (defcustom claude-code-vterm-buffer-multiline-output t
   "Whether to buffer vterm output to prevent flickering on multi-line input.
