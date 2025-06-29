@@ -710,9 +710,6 @@ _BACKEND is the terminal backend type (should be \\='vterm)."
   (setq vterm-term-environment-variable claude-code-term-name)
   ;; Prevent vterm from automatically renaming the buffer
   (setq-local vterm-buffer-name-string nil)
-  ;; Set scrollback size if needed
-  (when claude-code-eat-never-truncate-claude-buffer
-    (setq-local vterm-max-scrollback 1000000))
   ;; Disable automatic scrolling to bottom on output to prevent flickering
   (setq-local vterm-scroll-to-bottom-on-output nil)
   ;; Disable immediate redraw to batch updates and reduce flickering
