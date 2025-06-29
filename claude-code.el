@@ -499,7 +499,7 @@ BACKEND is the terminal backend type (should be \\='eat)."
   (not eat--semi-char-mode))
 
 (defun claude-code--eat-synchronize-scroll (windows)
-  "Synchronize scrolling and point between terminal and WINDOWS for eat backend.
+  "Synchronize scrolling and point between terminal and WINDOWS.
 
 WINDOWS is a list of windows.  WINDOWS may also contain the special
 symbol `buffer', in which case the point of current buffer is set.
@@ -509,25 +509,24 @@ possible, preventing the scrolling up issue when editing other buffers."
   (dolist (window windows)
     (if (eq window 'buffer)
         (goto-char (eat-term-display-cursor eat-terminal))
-      ;; Instead of always setting window-start to the beginning,
-      ;; keep the prompt at the bottom of the window when possible.
-      ;; Don't move the cursor around though when in eat-emacs-mode
+      ;; Don't move the cursor around when in eat-emacs-mode
       (when (not buffer-read-only)
-        (let ((cursor-pos (eat-term-display-cursor eat-terminal))
-              (term-beginning (eat-term-display-beginning eat-terminal)))
-          ;; Set point first
+        (let ((cursor-pos (eat-term-display-cursor eat-terminal)))
+          ;; Always set point to cursor position
           (set-window-point window cursor-pos)
-          ;; Check if we should keep the prompt at the bottom
-          (when (and (>= cursor-pos (- (point-max) 2))
-                     (not (pos-visible-in-window-p cursor-pos window)))
-            ;; Recenter with point at bottom of window
+          ;; Try to keep cursor visible with minimal scrolling
+          (cond
+           ;; If cursor is at/near end, keep at bottom
+           ((>= cursor-pos (- (point-max) 2))
             (with-selected-window window
-              (save-excursion
-                (goto-char cursor-pos)
-                (recenter -1))))
-          ;; Otherwise, only adjust window-start if cursor is not visible
-          (unless (pos-visible-in-window-p cursor-pos window)
-            (set-window-start window term-beginning)))))))
+              (goto-char cursor-pos)
+              (recenter -1)))
+           ;; If cursor not visible, scroll minimally to show it
+           ((not (pos-visible-in-window-p cursor-pos window))
+            (with-selected-window window
+              (goto-char cursor-pos)
+              ;; Center cursor in window instead of jumping to term beginning
+              (recenter)))))))))
 
 (cl-defmethod claude-code--term-configure ((backend (eql eat)))
   "Configure eat terminal in current buffer.
