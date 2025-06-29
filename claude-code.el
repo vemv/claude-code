@@ -1087,9 +1087,6 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
                                (append claude-code-program-switches extra-switches)
                              claude-code-program-switches))
 
-         ;; (process-adaptive-read-buffering nil)
-         ;; [TODO] do we need this?
-
          ;; Start the terminal process
          (buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)))
 
@@ -1141,6 +1138,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
     (when switch-after
       (switch-to-buffer buffer))))
 
+;;;###autoload
 (defun claude-code (&optional arg)
   "Start Claude in an eat terminal and enable `claude-code-mode'.
 
@@ -1607,7 +1605,6 @@ having to switch to the REPL buffer."
   (claude-code--with-buffer
    (claude-code--term-send-string claude-code-terminal-backend (kbd "ESC"))))
 
-;; [TODO] move to private area, extract string send fn (maybe)
 (defun claude-code--send-meta-return ()
   "Send Meta-Return key sequence to the terminal."
   (interactive)
