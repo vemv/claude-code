@@ -339,8 +339,8 @@ for each directory across multiple invocations.")
     ("TAB" "Cycle Claude mode" claude-code-cycle-mode :transient t)
     ]
    ["Quick Responses"
-    ("y" "Send <return> (\"Yes\")" claude-code-send-return)
-    ("n" "Send <escape> (\"No\")" claude-code-send-escape)
+    ("y" "Send <return>" claude-code-send-return)
+    ("n" "Send <escape>" claude-code-send-escape)
     ("1" "Send \"1\"" claude-code-send-1)
     ("2" "Send \"2\"" claude-code-send-2)
     ("3" "Send \"3\"" claude-code-send-3)
