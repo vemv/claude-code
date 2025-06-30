@@ -476,7 +476,8 @@ STRING is the text to send to the terminal."
 _BACKEND is the terminal backend type (should be \\='eat).
 BUFFER is the terminal buffer containing the process to kill."
   (with-current-buffer buffer
-    (eat-kill-process)))
+    (eat-kill-process)
+    (kill-buffer buffer)))
 
 (cl-defmethod claude-code--term-read-only-mode ((_backend (eql eat)))
   "Switch eat terminal to read-only mode.
@@ -978,7 +979,7 @@ This is used after command functions to ensure we switch to the
 selected Claude buffer when the user chose a different instance."
   (when (and selected-buffer
              (not (eq selected-buffer (current-buffer))))
-    (switch-to-buffer selected-buffer)))
+    (pop-to-buffer selected-buffer)))
 
 (defun claude-code--buffer-name (&optional instance-name)
   "Generate the Claude buffer name based on project or current buffer file.
@@ -1036,7 +1037,6 @@ If FORCE-PROMPT is non-nil, always prompt even if no instances exist."
       ;; Clean the window widths hash table
       (when claude-code--window-widths
         (clrhash claude-code--window-widths))
-  
       ;; Kill the process
       (claude-code--term-kill-process claude-code-terminal-backend buffer))))
 
@@ -1127,7 +1127,7 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
 
       ;; Setup our custom key bindings
       (claude-code--term-setup-keymap claude-code-terminal-backend)
-      
+
       ;; Customize terminal faces
       (claude-code--term-customize-faces claude-code-terminal-backend)
 
@@ -1150,16 +1150,19 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       ;; Disable vertical scroll bar in claude buffer
       (setq-local vertical-scroll-bar nil)
 
-      ;; Display buffer, setting window parameters. Claude provides a litte space on the right but
-      ;; not on the left, so add a 1 column left margin and a 0 right margin. Turn off frignes in
-      ;; the claude buffer.
-      (display-buffer buffer '(window-parameters . ((left-margin-width . 0)
-                                                    (right-margin-width . 0)
-                                                    (left-fringe-width . 0)
-                                                    (right-fringe-width . 0)))))
-    
+      ;; Display buffer, setting window parameters
+      (display-buffer buffer '((display-buffer-below-selected)))
+      
+      ;; turn off fringes and margins in the Claude buffer
+      (let ((window (get-buffer-window buffer)))
+        (set-window-parameter window 'left-margin-width 0)
+        (set-window-parameter window 'right-margin-width 0)
+        (set-window-parameter window 'left-fringe-width 0)
+        (set-window-parameter window 'right-fringe-width 0)))
+
+    ;; switch to the Claude buffer if asked to
     (when switch-after
-      (switch-to-buffer buffer))))
+      (pop-to-buffer buffer))))
 
 ;;;###autoload
 (defun claude-code (&optional arg)
