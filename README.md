@@ -208,7 +208,7 @@ You can change this behavior by customizing `claude-code-newline-keybinding-styl
 - `claude-code-switch-to-buffer` (`C-c c b`) - Switch to the Claude buffer. With prefix arg (`C-u`), shows all Claude instances across all directories
 - `claude-code-select-buffer` (`C-c c B`) - Select and switch to a Claude buffer from all running instances across all projects and directories
 - `claude-code-toggle-read-only-mode` (`C-c c z`) - Toggle between read-only mode and normal mode in Claude buffer (useful for selecting and copying text)
-- `claude-code-cycle-mode` (`C-c c TAB`) - Send Shift-Tab to Claude to cycle between default mode, auto-accept edits mode, and plan mode
+- `claude-code-cycle-mode` (`C-c c M`) - Send Shift-Tab to Claude to cycle between default mode, auto-accept edits mode, and plan mode
 
 - `claude-code-send-return` (`C-c c y`) - Send return key to Claude (useful for confirming with Claude without switching to the Claude REPL buffer) (useful for responding with "Yes"  to Claude)
 - `claude-code-send-escape` (`C-c c n`) - Send escape key to Claude (useful for saying "No" when Claude asks for confirmation without switching to the Claude REPL buffer)

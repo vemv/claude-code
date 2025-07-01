@@ -306,7 +306,7 @@ for each directory across multiple invocations.")
     (define-key map (kbd "1") 'claude-code-send-1)
     (define-key map (kbd "2") 'claude-code-send-2)
     (define-key map (kbd "3") 'claude-code-send-3)
-    (define-key map (kbd "<tab>") 'claude-code-cycle-mode)
+    (define-key map (kbd "M") 'claude-code-cycle-mode)
     map)
   "Keymap for Claude commands.")
 
@@ -336,7 +336,7 @@ for each directory across multiple invocations.")
     ("b" "Switch to Claude buffer" claude-code-switch-to-buffer)
     ("B" "Select from all Claude buffers" claude-code-select-buffer)
     ("z" "Toggle read-only mode" claude-code-toggle-read-only-mode)
-    ("TAB" "Cycle Claude mode" claude-code-cycle-mode :transient t)
+    ("M" "Cycle Claude mode" claude-code-cycle-mode :transient t)
     ]
    ["Quick Responses"
     ("y" "Send <return>" claude-code-send-return)
