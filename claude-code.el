@@ -1460,7 +1460,7 @@ switch to Claude buffer."
     (when full-text
       (let ((selected-buffer (claude-code--do-send-command full-text)))
         (when (and (equal arg '(16)) selected-buffer) ; Only switch buffer with C-u C-u
-          (switch-to-buffer selected-buffer))))))
+          (pop-to-buffer selected-buffer))))))
 
 ;;;###autoload
 (defun claude-code-toggle ()
@@ -1487,7 +1487,7 @@ Returns t if a buffer was selected and switched to, nil otherwise."
       nil)
      ((= (length all-buffers) 1)
       ;; Only one buffer, just switch to it
-      (switch-to-buffer (car all-buffers))
+      (pop-to-buffer (car all-buffers))
       t)
      (t
       ;; Multiple buffers, let user choose
@@ -1495,7 +1495,7 @@ Returns t if a buffer was selected and switched to, nil otherwise."
                               "Select Claude instance: "
                               all-buffers)))
         (when selected-buffer
-          (switch-to-buffer selected-buffer)
+          (pop-to-buffer selected-buffer)
           t))))))
 
 (defun claude-code-switch-to-buffer (&optional arg)
@@ -1508,7 +1508,7 @@ With prefix ARG, show all Claude instances across all directories."
       (claude-code--switch-to-all-instances-helper)
     ;; Without prefix arg, use normal behavior
     (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-        (switch-to-buffer claude-code-buffer)
+        (pop-to-buffer claude-code-buffer)
       (claude-code--show-not-running-message))))
 
 ;;;###autoload
@@ -1563,7 +1563,7 @@ With prefix ARG, switch to the Claude buffer after sending CMD."
   (interactive "sClaude command: \nP")
   (let ((selected-buffer (claude-code--do-send-command cmd)))
     (when (and arg selected-buffer)
-      (switch-to-buffer selected-buffer))))
+      (pop-to-buffer selected-buffer))))
 
 ;;;###autoload
 (defun claude-code-send-command-with-context (cmd &optional arg)
@@ -1586,7 +1586,7 @@ With prefix ARG, switch to the Claude buffer after sending CMD."
                              cmd)))
     (let ((selected-buffer (claude-code--do-send-command cmd-with-context)))
       (when (and arg selected-buffer)
-        (switch-to-buffer selected-buffer)))))
+        (pop-to-buffer selected-buffer)))))
 
 ;;;###autoload
 (defun claude-code-send-return ()
@@ -1665,7 +1665,7 @@ Sends <escape><escape> to the Claude Code REPL."
       (with-current-buffer claude-code-buffer
         (claude-code--term-send-string claude-code-terminal-backend "")
         ;; (display-buffer claude-code-buffer)
-        (switch-to-buffer claude-code-buffer))
+        (pop-to-buffer claude-code-buffer))
     (claude-code--show-not-running-message)))
 
 ;;;###autoload
@@ -1686,7 +1686,7 @@ With prefix ARG, switch to the Claude buffer after sending."
                              file-name error-text)))
         (let ((selected-buffer (claude-code--do-send-command command)))
           (when (and arg selected-buffer)
-            (switch-to-buffer selected-buffer)))))))
+            (pop-to-buffer selected-buffer)))))))
 
 ;;;###autoload
 (defun claude-code-read-only-mode ()
