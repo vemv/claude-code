@@ -459,8 +459,7 @@ PROGRAM is the program to run in the terminal.
 SWITCHES are optional command-line arguments for PROGRAM."
   (claude-code--ensure-eat)
 
-  (let* ((process-environment (append '("TERM_PROGRAM=emacs" "FORCE_CODE_TERMINAL=true") process-environment))
-         (trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*")))
+  (let* ((trimmed-buffer-name (string-trim-right (string-trim buffer-name "\\*") "\\*")))
     (apply #'eat-make trimmed-buffer-name program nil switches)))
 
 (cl-defmethod claude-code--term-send-string ((_backend (eql eat)) string)
@@ -640,11 +639,6 @@ SWITCHES are optional command-line arguments for PROGRAM."
   (let* ((vterm-shell (if switches
                           (concat program " " (mapconcat #'identity switches " "))
                         program))
-         (vterm-environment (append
-                             (list
-                              "TERM_PROGRAM=emacs"
-                              "FORCE_CODE_TERMINAL=true")
-                             vterm-environment))
          (buffer (get-buffer-create buffer-name)))
     (with-current-buffer buffer
       ;; vterm needs to have an open window before starting the claude
