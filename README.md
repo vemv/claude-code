@@ -31,28 +31,22 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 
 ```elisp
 ;; add melp to package archives, as vterm is on melpa:
+;; vterm is on melpa
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
 
 ;; for eat terminal backend:
-(use-package eat :ensure t
-  :vc (:host codeberg
-             :repo "akib/emacs-eat"
-             :files ("*.el" ("term" "term/*.el") "*.texi" "*.ti" ("terminfo/e" "terminfo/e/*")
-                     ("terminfo/65" "terminfo/65/*")
-                     ("integration" "integration/*")
-                     (:exclude ".dir-locals.el" "*-tests.el"))))
+(use-package eat :ensure t)
 
 ;; for vterm terminal backend:
 (use-package vterm :ensure t)
 
-;; install claude-code.el:
+;; install claude-code.el
 (use-package claude-code :ensure t
   :vc (:url "https://github.com/stevemolitor/claude-code.el" :rev :newest)
   :config (claude-code-mode)
-  :bind-keymap ("C-c c" . claude-code-command-map) ;; or your preferred key
-  )
+  :bind-keymap ("C-c c" . claude-code-command-map))
 ```
 
 ### Using straight.el
