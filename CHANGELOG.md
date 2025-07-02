@@ -2,7 +2,7 @@
 
 All notable changes to claude-code.el will be documented in this file.
 
-## [Unreleased]
+## [0.4.0]
 
 ### Changed
 - `claude-code-eat-never-truncate-claude-buffer` is now obsolete
