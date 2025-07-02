@@ -1095,6 +1095,9 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
                                (append claude-code-program-switches extra-switches)
                              claude-code-program-switches))
 
+         ;; Set process-adaptive-read-buffering to nil to avoid flickering while Claude is processing
+         (process-adaptive-read-buffering nil)
+         
          ;; Start the terminal process
          (buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)))
 
