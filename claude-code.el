@@ -135,8 +135,7 @@ resizing."
   :group 'claude-code-window)
 
 (defcustom claude-code-no-delete-other-windows nil
-  "Whether to prevent Claude Code windows from being deleted by other
-window commands.
+  "Whether to prevent Claude Code windows from being deleted.
 
 When non-nil, claude-code will have the `no-delete-other-windows'
 parameter.  This parameter prevents the claude-code window from
