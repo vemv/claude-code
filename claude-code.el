@@ -30,6 +30,10 @@
   "Vterm terminal backend specific settings for Claude Code."
   :group 'claude-code)
 
+(defgroup claude-code-window nil
+  "Window management settings for Claude Code."
+  :group 'claude-code)
+
 (defface claude-code-repl-face
   nil
   "Face for Claude REPL."
@@ -139,7 +143,7 @@ parameter.  This parameter prevents the claude-code window from
 closing when calling `delete-other-windows' or any command that would
 launch a new full-screen buffer."
   :type 'boolean
-  :group 'claude-code)
+  :group 'claude-code-window)
 
 ;;;;; Eat terminal customizations
 ;; Eat-specific terminal faces
