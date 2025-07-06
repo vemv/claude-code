@@ -132,7 +132,7 @@ performance and reducing visual artifacts.
 Set to nil if you experience issues with terminal display after window
 resizing."
   :type 'boolean
-  :group 'claude-code)
+  :group 'claude-code-window)
 
 (defcustom claude-code-no-delete-other-windows nil
   "Whether to prevent Claude Code windows from being deleted by other
