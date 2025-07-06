@@ -16,7 +16,6 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 - **Mode Cycling** - Quick switch between default, auto-accept edits, and plan modes
 - **Desktop Notifications** - Get notified when Claude finishes processing
 - **Terminal Choice** - Works with both eat and vterm backends
-- **Sticky Windows** - Optional dedicated windows that stay visible and accessible
 - **Fully Customizable** - Configure keybindings, notifications, and display preferences
 
 ## Installation {#installation}
@@ -366,12 +365,12 @@ For Windows, you can use PowerShell to create toast notifications:
 ;; Set to nil if you experience issues with terminal display after resizing.
 (setq claude-code-optimize-window-resize t)
 
-;; Enable/disable sticky (dedicated) windows (default is nil)
-;; When enabled, Claude Code windows are dedicated to their buffers,
-;; preventing them from being automatically reused by other buffers
-;; or buried by window management commands. This keeps the Claude
-;; buffer visible and accessible.
-(setq claude-code-sticky-window t)
+;; Enable/disable no-delete-other-windows parameter (default is nil)
+;; When enabled, Claude Code windows have the no-delete-other-windows
+;; parameter set. This prevents the Claude window from being closed
+;; when you run delete-other-windows or similar commands, keeping the
+;; Claude buffer visible and accessible.
+(setq claude-code-no-delete-other-windows t)
 ```
 
 ### Customizing Window Position
@@ -383,8 +382,7 @@ You can control how the Claude Code window appears using Emacs' `display-buffer-
                  '("^\\*claude"
                    (display-buffer-in-side-window)
                    (side . right)
-                   (window-width . 90)
-                   (window-parameters . ((no-delete-other-windows . t)))))
+                   (window-width . 90)))
 ```
 
 This layout works best on wide screens.

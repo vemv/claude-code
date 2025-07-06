@@ -130,15 +130,14 @@ resizing."
   :type 'boolean
   :group 'claude-code)
 
-(defcustom claude-code-sticky-window nil
-  "Whether to make Claude Code windows sticky (dedicated).
+(defcustom claude-code-no-delete-other-windows nil
+  "Whether to prevent Claude Code windows from being deleted by other
+window commands.
 
-When non-nil, Claude Code windows are dedicated to their buffers,
-preventing them from being automatically reused by other buffers
-or buried by window management commands. This keeps the Claude
-buffer visible and accessible.
-
-When nil, Claude Code windows behave like normal Emacs windows."
+When non-nil, claude-code will have the `no-delete-other-windows'
+parameter.  This parameter prevents the claude-code window from
+closing when calling `delete-other-windows' or any command that would
+launch a new full-screen buffer."
   :type 'boolean
   :group 'claude-code)
 
@@ -1170,10 +1169,8 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
           (set-window-parameter window 'right-margin-width 0)
           (set-window-parameter window 'left-fringe-width 0)
           (set-window-parameter window 'right-fringe-width 0)
-          ;; Make the window dedicated if sticky mode is enabled
-          (when claude-code-sticky-window
-            (set-window-dedicated-p window t)
-            (set-window-parameter window 'no-delete-other-windows t)))))
+          ;; set no-delete-other-windows parameter for claude-code window
+          (set-window-parameter window 'no-delete-other-windows claude-code-no-delete-other-windows))))
 
     ;; switch to the Claude buffer if asked to
     (when switch-after
@@ -1488,9 +1485,8 @@ If the Claude buffer doesn't exist, create it."
         (if (get-buffer-window claude-code-buffer)
             (delete-window (get-buffer-window claude-code-buffer))
           (let ((window (display-buffer claude-code-buffer '((display-buffer-below-selected)))))
-            (when claude-code-sticky-window
-              (set-window-dedicated-p window t)
-              (set-window-parameter window 'no-delete-other-windows t))))
+            ;; set no-delete-other-windows parameter for claude-code window
+            (set-window-parameter window 'no-delete-other-windows claude-code-no-delete-other-windows)))
       (claude-code--show-not-running-message))))
 
 ;;;###autoload
