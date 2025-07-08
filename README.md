@@ -363,6 +363,13 @@ For Windows, you can use PowerShell to create toast notifications:
 ;; windows vertically, improving performance and reducing visual artifacts.
 ;; Set to nil if you experience issues with terminal display after resizing.
 (setq claude-code-optimize-window-resize t)
+
+;; Enable/disable no-delete-other-windows parameter (default is nil)
+;; When enabled, Claude Code windows have the no-delete-other-windows
+;; parameter set. This prevents the Claude window from being closed
+;; when you run delete-other-windows or similar commands, keeping the
+;; Claude buffer visible and accessible.
+(setq claude-code-no-delete-other-windows t)
 ```
 
 ### Customizing Window Position
@@ -374,8 +381,7 @@ You can control how the Claude Code window appears using Emacs' `display-buffer-
                  '("^\\*claude"
                    (display-buffer-in-side-window)
                    (side . right)
-                   (window-width . 90)
-                   (window-parameters . ((no-delete-other-windows . t)))))
+                   (window-width . 90)))
 ```
 
 This layout works best on wide screens.
