@@ -65,9 +65,9 @@ An Emacs interface for [Claude Code CLI](https://github.com/anthropics/claude-co
 ;; for vterm terminal backend:
 (use-package vterm :straight t)
 
-;; install claude-code.el:
+;; install claude-code.el, using :depth 1 to reduce download size:
 (use-package claude-code
-  :straight (:type git :host github :repo "stevemolitor/claude-code.el" :branch "main"
+  :straight (:type git :host github :repo "stevemolitor/claude-code.el" :branch "main" :depth 1
                    :files ("*.el" (:exclude "images/*")))
   :bind-keymap
   ("C-c c" . claude-code-command-map) ;; or your preferred key
