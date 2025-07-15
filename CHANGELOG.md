@@ -2,6 +2,11 @@
 
 All notable changes to claude-code.el will be documented in this file.
 
+## [0.4.1]
+
+### Changed
+- upgrade to the latest transient release
+
 ## [0.4.0]
 
 ### Changed
