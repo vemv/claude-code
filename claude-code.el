@@ -1064,6 +1064,20 @@ the remembered directory->buffer associations."
   (when buffer-file-name
     (file-truename buffer-file-name)))
 
+(defun claude-code--format-file-reference (&optional file-name line-start line-end)
+  "Format a file reference in the @file:line style.
+
+FILE-NAME is the file path.  If nil, get from current buffer.
+LINE-START is the starting line number.  If nil, use current line.
+LINE-END is the ending line number for a range.  If nil, format single line."
+  (let ((file (or file-name (claude-code--get-buffer-file-name)))
+        (start (or line-start (line-number-at-pos)))
+        (end line-end))
+    (when file
+      (if end
+          (format "@%s:%d-%d" file start end)
+        (format "@%s:%d" file start)))))
+
 (defun claude-code--do-send-command (cmd)
   "Send a command CMD to Claude if Claude buffer exists.
 
@@ -1586,17 +1600,14 @@ With prefix ARG, switch to the Claude buffer after sending CMD."
 If region is active, include region line numbers.
 With prefix ARG, switch to the Claude buffer after sending CMD."
   (interactive "sClaude command: \nP")
-  (let* ((file-name (claude-code--get-buffer-file-name))
-         (line-info (if (use-region-p)
-                        (format "Lines: %d-%d"
-                                (line-number-at-pos (region-beginning))
-                                (line-number-at-pos (region-end)))
-                      (format "Line: %d" (line-number-at-pos))))
-         (cmd-with-context (if file-name
-                               (format "%s\nContext: File: %s, %s"
-                                       cmd
-                                       file-name
-                                       line-info)
+  (let* ((file-ref (if (use-region-p)
+                       (claude-code--format-file-reference
+                        nil
+                        (line-number-at-pos (region-beginning))
+                        (line-number-at-pos (region-end)))
+                     (claude-code--format-file-reference)))
+         (cmd-with-context (if file-ref
+                               (format "%s\n%s" cmd file-ref)
                              cmd)))
     (let ((selected-buffer (claude-code--do-send-command cmd-with-context)))
       (when (and arg selected-buffer)
@@ -1693,11 +1704,11 @@ as any system that implements help-at-pt.
 With prefix ARG, switch to the Claude buffer after sending."
   (interactive "P")
   (let* ((error-text (claude-code--format-errors-at-point))
-         (file-name (claude-code--get-buffer-file-name)))
+         (file-ref (claude-code--format-file-reference)))
     (if (string= error-text "No errors at point")
         (message "No errors found at point")
-      (let ((command (format "Fix this error in %s:\nDo not run any external linter or other program, just fix the error at point using the context provided in the error message: <%s>"
-                             file-name error-text)))
+      (let ((command (format "Fix this error at %s:\nDo not run any external linter or other program, just fix the error at point using the context provided in the error message: <%s>"
+                             (or file-ref "current position") error-text)))
         (let ((selected-buffer (claude-code--do-send-command command)))
           (when (and arg selected-buffer)
             (pop-to-buffer selected-buffer)))))))

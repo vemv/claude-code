@@ -2,6 +2,11 @@
 
 All notable changes to claude-code.el will be documented in this file.
 
+## [0.4.2]
+
+### Changed
+- File references now use `@file:line` format instead of verbose context format
+
 ## [0.4.1]
 
 ### Changed
