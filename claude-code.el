@@ -12,7 +12,7 @@
 ;; commands, toggling the Claude window, and accessing slash commands.
 
 ;;; Code:
-
+;;;; Require dependencies
 (require 'transient)
 (require 'project)
 (require 'cl-lib)
@@ -132,6 +132,13 @@ performance and reducing visual artifacts.
 Set to nil if you experience issues with terminal display after window
 resizing."
   :type 'boolean
+  :group 'claude-code)
+
+(defcustom claude-code-terminal-backend 'eat
+  "Terminal backend to use for Claude Code.
+Choose between \\='eat (default) and \\='vterm terminal emulators."
+  :type '(radio (const :tag "Eat terminal emulator" eat)
+                (const :tag "Vterm terminal emulator" vterm))
   :group 'claude-code)
 
 (defcustom claude-code-no-delete-other-windows nil
@@ -290,7 +297,7 @@ between reducing flickering and maintaining responsiveness."
   :type 'number
   :group 'claude-code-vterm)
 
-;;;; Forward declrations for flycheck
+;;;; Forward declarations for flycheck
 (declare-function flycheck-overlay-errors-at "flycheck")
 (declare-function flycheck-error-filename "flycheck")
 (declare-function flycheck-error-line "flycheck")
@@ -406,16 +413,6 @@ for each directory across multiple invocations.")
 
 ;;;; Terminal abstraction layer
 ;; This layer abstracts terminal operations to support multiple backends (eat, vterm, etc.)
-
-(require 'cl-lib)
-
-(defcustom claude-code-terminal-backend 'eat
-  "Terminal backend to use for Claude Code.
-Choose between \\='eat (default) and \\='vterm terminal emulators."
-  :type '(radio (const :tag "Eat terminal emulator" eat)
-                (const :tag "Vterm terminal emulator" vterm))
-  :group 'claude-code)
-
 ;;;;; Generic function definitions
 
 (cl-defgeneric claude-code--term-make (backend buffer-name program &optional switches)
@@ -1480,7 +1477,6 @@ ARGS is passed to ORIG-FUN unchanged."
         nil))))
 
 ;;;; Interactive Commands
-
 ;;;###autoload
 (defun claude-code-send-region (&optional arg)
   "Send the current region to Claude.
