@@ -1375,7 +1375,7 @@ ORIG-FUN is the original vterm--filter function.
 PROCESS is the vterm process.
 INPUT is the terminal output string."
   (when (and (string-match-p "\007" input)
-             (buffer-local-value 'claude-code-mode (process-buffer process))
+             (claude-code--buffer-p (process-buffer process))
              ;; Ignore bells in OSC sequences (terminal title updates)
              (not (string-match-p "]0;.*\007" input)))
     (claude-code--notify nil))
@@ -1397,8 +1397,9 @@ indicate cursor positioning and line clearing operations.
 ORIG-FUN is the original vterm--filter function.
 PROCESS is the vterm process.
 INPUT is the terminal output string."
-  (if (not claude-code-vterm-buffer-multiline-output)
-      ;; Feature disabled, pass through normally
+  (if (or (not claude-code-vterm-buffer-multiline-output)
+          (not (claude-code--buffer-p (process-buffer process))))
+      ;; Feature disabled or not a Claude buffer, pass through normally
       (funcall orig-fun process input)
     (with-current-buffer (process-buffer process)
       ;; Check if this looks like multi-line input box redraw
@@ -1469,12 +1470,15 @@ ARGS is passed to ORIG-FUN unchanged."
                 (setq width-changed t)
                 ;; Update stored width
                 (puthash window current-width claude-code--window-widths))))))
-      ;; Return result only if a Claude window width changed and
-      ;; we're not in read-only mode. otherwise nil. Nil means do
-      ;; not send a window size changed event to the Claude process.
-      (if (and width-changed (not (claude-code--term-in-read-only-p claude-code-terminal-backend)))
+      ;; If current buffer is not a Claude buffer, just pass through normally
+      (if (not (claude-code--buffer-p (current-buffer)))
           result
-        nil))))
+        ;; For Claude buffers: Return result only if a Claude window width changed and
+        ;; we're not in read-only mode. otherwise nil. Nil means do
+        ;; not send a window size changed event to the Claude process.
+        (if (and width-changed (not (claude-code--term-in-read-only-p claude-code-terminal-backend)))
+            result
+          nil)))))
 
 ;;;; Interactive Commands
 ;;;###autoload
