@@ -824,6 +824,15 @@ _BACKEND is the terminal backend type (should be \\='vterm)."
 ;;   (interactive)
 ;;   (vterm-send-key "" nil t))
 
+(defun vemv/toggle-claude-frame (&rest _)
+  (interactive)
+  (when (and vemv/claude_frame
+             (frame-live-p vemv/claude_frame))
+    (if (eq (selected-frame) vemv/claude_frame)
+        (select-frame vemv/main_frame)
+      (select-frame vemv/claude_frame))
+    (select-frame-set-input-focus (selected-frame))))
+
 (cl-defmethod claude-code--term-setup-keymap ((_backend (eql vterm)))
   "Set up the local keymap for Claude Code buffers.
 
@@ -834,6 +843,8 @@ _BACKEND is the terminal backend type (should be \\='vterm)."
 
     ;; C-g for escape
     (define-key map (kbd "C-g") #'claude-code--vterm-send-escape)
+
+    (define-key vterm-mode-map (kbd "M-c") #'vemv/toggle-claude-frame)
 
     (pcase claude-code-newline-keybinding-style
       ('newline-on-shift-return
