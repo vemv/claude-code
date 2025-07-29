@@ -869,7 +869,7 @@ is found."
   `(if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
        (with-current-buffer claude-code-buffer
          ,@body
-         (display-buffer claude-code-buffer))
+         (vemv/switch-to-buffer-in-any-frame--returning-window claude-code-buffer))
      (claude-code--show-not-running-message)))
 
 (defun claude-code--buffer-p (buffer)
@@ -1029,7 +1029,7 @@ This is used after command functions to ensure we switch to the
 selected Claude buffer when the user chose a different instance."
   (when (and selected-buffer
              (not (eq selected-buffer (current-buffer))))
-    (pop-to-buffer selected-buffer)))
+    (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer)))
 
 (defun claude-code--buffer-name (&optional instance-name)
   "Generate the Claude buffer name based on project or current buffer file.
@@ -1129,8 +1129,8 @@ Returns the selected Claude buffer or nil."
       (progn
         (with-current-buffer claude-code-buffer
           (claude-code--term-send-string claude-code-terminal-backend cmd)
-          (claude-code--term-send-string claude-code-terminal-backend (kbd "RET"))
-          (display-buffer claude-code-buffer))
+          ;; (claude-code--term-send-string claude-code-terminal-backend (kbd "RET"))
+          (vemv/switch-to-buffer-in-any-frame--returning-window claude-code-buffer))
         claude-code-buffer)
     (claude-code--show-not-running-message)
     nil))
@@ -1169,7 +1169,20 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
          (process-adaptive-read-buffering nil)
 
          ;; Start the terminal process
-         (buffer (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)))
+         (buffer (if vemv/claude-initialized
+                     (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)
+                   (setq vemv/claude-initialized t)
+                   (if 1
+                       (let* ((frame (vemv/new-frame nil t)) ;; no-show, no-margin
+                              (window (frame-selected-window frame))
+                              (_ (setq vemv/claude_frame frame))
+                              (b
+                               (with-selected-window window
+                                 (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches))))
+                         ;; (select-frame-set-input-focus vemv/main_frame)
+                         ;; (select-window vemv/main_window)
+                         b)
+                     (claude-code--term-make claude-code-terminal-backend buffer-name claude-code-program program-switches)))))
 
     ;; Check if the claude program is available
     (unless (executable-find claude-code-program)
@@ -1218,7 +1231,8 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
       (setq-local vertical-scroll-bar nil)
 
       ;; Display buffer, setting window parameters
-      (let ((window (display-buffer buffer '((display-buffer-below-selected)))))
+      ;; intentionally using switch-to-buffer here - no vemv/...
+      (let ((window (switch-to-buffer (buffer-name buffer))))
         (when window
           ;; turn off fringes and margins in the Claude buffer
           (set-window-parameter window 'left-margin-width 0)
@@ -1229,8 +1243,9 @@ With double prefix ARG (\\[universal-argument] \\[universal-argument]), prompt f
           (set-window-parameter window 'no-delete-other-windows claude-code-no-delete-other-windows))))
 
     ;; switch to the Claude buffer if asked to
+    ;; intentionally using switch-to-buffer here - no vemv/...
     (when switch-after
-      (pop-to-buffer buffer))))
+      (switch-to-buffer (buffer-name buffer)))))
 
 ;;;###autoload
 (defun claude-code (&optional arg)
@@ -1388,9 +1403,9 @@ ARGS can contain additional arguments passed from the CLI."
   ;; from trying to evaluate leftover arguments as Lisp expressions
   (let ((json-data (when server-eval-args-left (pop server-eval-args-left)))
         (extra-args (prog1 server-eval-args-left (setq server-eval-args-left nil))))
-    (let ((message (list :type type 
-                         :buffer-name buffer-name 
-                         :json-data json-data 
+    (let ((message (list :type type
+                         :buffer-name buffer-name
+                         :json-data json-data
                          :args (append args extra-args))))
       (run-hook-with-args 'claude-code-event-hook message))))
 
@@ -1545,7 +1560,7 @@ switch to Claude buffer."
     (when full-text
       (let ((selected-buffer (claude-code--do-send-command full-text)))
         (when (and (equal arg '(16)) selected-buffer) ; Only switch buffer with C-u C-u
-          (pop-to-buffer selected-buffer))))))
+          (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer))))))
 
 ;;;###autoload
 (defun claude-code-toggle ()
@@ -1557,7 +1572,7 @@ If the Claude buffer doesn't exist, create it."
     (if claude-code-buffer
         (if (get-buffer-window claude-code-buffer)
             (delete-window (get-buffer-window claude-code-buffer))
-          (let ((window (display-buffer claude-code-buffer '((display-buffer-below-selected)))))
+          (let ((window (vemv/switch-to-buffer-in-any-frame--returning-window claude-code-buffer)))
             ;; set no-delete-other-windows parameter for claude-code window
             (set-window-parameter window 'no-delete-other-windows claude-code-no-delete-other-windows)))
       (claude-code--show-not-running-message))))
@@ -1574,7 +1589,7 @@ Returns t if a buffer was selected and switched to, nil otherwise."
       nil)
      ((= (length all-buffers) 1)
       ;; Only one buffer, just switch to it
-      (pop-to-buffer (car all-buffers))
+      (vemv/switch-to-buffer-in-any-frame--returning-window (car all-buffers))
       t)
      (t
       ;; Multiple buffers, let user choose
@@ -1582,7 +1597,7 @@ Returns t if a buffer was selected and switched to, nil otherwise."
                               "Select Claude instance: "
                               all-buffers)))
         (when selected-buffer
-          (pop-to-buffer selected-buffer)
+          (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer)
           t))))))
 
 (defun claude-code-switch-to-buffer (&optional arg)
@@ -1595,7 +1610,7 @@ With prefix ARG, show all Claude instances across all directories."
       (claude-code--switch-to-all-instances-helper)
     ;; Without prefix arg, use normal behavior
     (if-let ((claude-code-buffer (claude-code--get-or-prompt-for-buffer)))
-        (pop-to-buffer claude-code-buffer)
+        (vemv/switch-to-buffer-in-any-frame--returning-window claude-code-buffer)
       (claude-code--show-not-running-message))))
 
 ;;;###autoload
@@ -1650,7 +1665,7 @@ With prefix ARG, switch to the Claude buffer after sending CMD."
   (interactive "sClaude command: \nP")
   (let ((selected-buffer (claude-code--do-send-command cmd)))
     (when (and arg selected-buffer)
-      (pop-to-buffer selected-buffer))))
+      (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer))))
 
 ;;;###autoload
 (defun claude-code-send-command-with-context (cmd &optional arg)
@@ -1670,7 +1685,7 @@ With prefix ARG, switch to the Claude buffer after sending CMD."
                              cmd)))
     (let ((selected-buffer (claude-code--do-send-command cmd-with-context)))
       (when (and arg selected-buffer)
-        (pop-to-buffer selected-buffer)))))
+        (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer)))))
 
 ;;;###autoload
 (defun claude-code-send-return ()
@@ -1740,7 +1755,7 @@ With two prefix ARGs, both add instructions and switch to Claude buffer."
                           (format "@%s" file-path))))
           (let ((selected-buffer (claude-code--do-send-command command)))
             (when (and (equal arg '(16)) selected-buffer) ; Only switch buffer with C-u C-u
-              (pop-to-buffer selected-buffer))))
+              (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer))))
       (error "Current buffer is not associated with a file"))))
 
 (defun claude-code--send-meta-return ()
@@ -1777,7 +1792,7 @@ Sends <escape><escape> to the Claude Code REPL."
       (with-current-buffer claude-code-buffer
         (claude-code--term-send-string claude-code-terminal-backend "")
         ;; (display-buffer claude-code-buffer)
-        (pop-to-buffer claude-code-buffer))
+        (vemv/switch-to-buffer-in-any-frame--returning-window claude-code-buffer))
     (claude-code--show-not-running-message)))
 
 ;;;###autoload
@@ -1798,7 +1813,7 @@ With prefix ARG, switch to the Claude buffer after sending."
                              (or file-ref "current position") error-text)))
         (let ((selected-buffer (claude-code--do-send-command command)))
           (when (and arg selected-buffer)
-            (pop-to-buffer selected-buffer)))))))
+            (vemv/switch-to-buffer-in-any-frame--returning-window selected-buffer)))))))
 
 ;;;###autoload
 (defun claude-code-read-only-mode ()
